@@ -1,6 +1,19 @@
-import { Box, VStack, Avatar, Text, Button } from "@chakra-ui/react";
+import {
+  Box,
+  VStack,
+  Avatar,
+  Text,
+  Button,
+  HStack,
+  Tag,
+} from "@chakra-ui/react";
+import { useNavigate } from "react-router-dom";
+import { useVoice } from "../contexts/VoiceContext";
 
 const Profile = () => {
+  const navigate = useNavigate();
+  const { selectedVoice } = useVoice();
+
   return (
     <Box p={4} pt={8}>
       <VStack spacing={6}>
@@ -11,6 +24,29 @@ const Profile = () => {
         <Button colorScheme="blue" width="full">
           编辑资料
         </Button>
+
+        {/* 当前声音 */}
+        <Box width="full" p={4} bg="white" borderRadius="md" shadow="sm">
+          <Text color="gray.500" mb={2}>
+            当前使用的声音
+          </Text>
+          <HStack justify="space-between" align="center">
+            <HStack>
+              <Text fontWeight="bold">{selectedVoice.name}</Text>
+              <Tag size="sm" colorScheme="purple" variant="subtle">
+                #{selectedVoice.type}
+              </Tag>
+            </HStack>
+            <Button
+              size="sm"
+              colorScheme="purple"
+              onClick={() => navigate("/voice-selection")}
+            >
+              切换声音
+            </Button>
+          </HStack>
+        </Box>
+
         <VStack width="full" spacing={4} align="stretch">
           <Box p={4} bg="white" borderRadius="md" shadow="sm">
             <Text color="gray.500">冥想次数</Text>

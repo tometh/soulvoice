@@ -1,6 +1,12 @@
 import { Box, HStack, IconButton, useColorMode } from "@chakra-ui/react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { FaHome, FaMicrophone, FaUser, FaPrayingHands } from "react-icons/fa";
+import {
+  FaHome,
+  FaMicrophone,
+  FaUser,
+  FaPrayingHands,
+  FaStore,
+} from "react-icons/fa";
 
 const BottomNav = () => {
   const location = useLocation();
@@ -11,6 +17,7 @@ const BottomNav = () => {
     { path: "/", icon: FaHome, label: "首页" },
     { path: "/meditation-list", icon: FaPrayingHands, label: "冥想" },
     { path: "/voice-selection", icon: FaMicrophone, label: "语音" },
+    { path: "/voice-store", icon: FaStore, label: "商店" },
     { path: "/profile", icon: FaUser, label: "我的" },
   ];
 

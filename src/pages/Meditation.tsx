@@ -9,9 +9,11 @@ import {
   SliderTrack,
   SliderFilledTrack,
   SliderThumb,
-  useColorMode,
   Spinner,
   useToast,
+  Switch,
+  FormControl,
+  FormLabel,
 } from "@chakra-ui/react";
 import {
   FaPlay,
@@ -33,12 +35,6 @@ const formatTime = (seconds: number) => {
   return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
 };
 
-interface MeditationState {
-  type: string;
-  scene: string;
-  audioUrl?: string;
-}
-
 const Meditation: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -48,15 +44,17 @@ const Meditation: React.FC = () => {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  const [meditationScript, setMeditationScript] = useState("");
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const wavesurferRef = useRef<WaveSurfer | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const { colorMode } = useColorMode();
   const [isFavorited, setIsFavorited] = useState(false);
   const [currentScriptIndex, setCurrentScriptIndex] = useState(0);
   const [meditationScripts, setMeditationScripts] = useState<string[]>([]);
+  const [scriptAudioUrl, setScriptAudioUrl] = useState<string | null>(null);
+  const scriptAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [isScriptLoading, setIsScriptLoading] = useState(false);
+  const [isScriptEnabled, setIsScriptEnabled] = useState(true);
 
   useEffect(() => {
     if (!state?.type || !state?.scene) {
@@ -97,80 +95,94 @@ const Meditation: React.FC = () => {
         audioRef.current = null;
       }
       // 清理临时 URL，但不清理默认音频 URL
-      if (audioUrl && !audioUrl.startsWith("./meditation/")) {
+      if (audioUrl && !audioUrl.startsWith("/meditation/")) {
         URL.revokeObjectURL(audioUrl);
       }
     };
   }, [state?.type, state?.scene, navigate, toast]);
 
   useEffect(() => {
-    if (audioUrl) {
+    if (audioUrl && !isLoading) {
       const audio = new Audio(audioUrl);
+      audioRef.current = audio;
 
-      const handleLoadError = () => {
-        console.error("音频加载失败:", audioUrl);
-        if (!audioUrl.includes("music.mp3")) {
-          // 如果不是默认音频才切换到默认音频
-          const defaultUrl = "./meditation/music.mp3";
-          setAudioUrl(defaultUrl);
-          toast({
-            title: "使用默认音频",
-            description: "原音频加载失败，已切换到默认冥想音乐",
-            status: "warning",
-            duration: 3000,
-            isClosable: true,
-          });
-        } else {
-          // 如果默认音频也加载失败，显示错误并返回列表页
-          toast({
-            title: "音频加载失败",
-            description: "无法加载音频文件，请检查网络连接",
-            status: "error",
-            duration: 3000,
-            isClosable: true,
-          });
-          navigate("/meditation-list");
-        }
-      };
-
-      audio.addEventListener("error", handleLoadError);
       audio.addEventListener("loadedmetadata", () => {
         setDuration(audio.duration || 0);
-        audioRef.current = audio;
       });
+
+      audio.addEventListener("error", (e) => {
+        console.error("音频加载错误:", e);
+        toast({
+          title: "音频加载失败",
+          description: "无法加载音频文件，请检查文件路径",
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+        });
+      });
+
       audio.addEventListener("timeupdate", () => {
         setCurrentTime(audio.currentTime || 0);
       });
+
       audio.addEventListener("ended", () => {
         setIsPlaying(false);
         setCurrentTime(0);
       });
 
       return () => {
-        audio.removeEventListener("error", handleLoadError);
         audio.pause();
+        audio.removeEventListener("loadedmetadata", () => {});
+        audio.removeEventListener("error", () => {});
+        audio.removeEventListener("timeupdate", () => {});
+        audio.removeEventListener("ended", () => {});
       };
     }
-  }, [audioUrl, toast, navigate]);
+  }, [audioUrl, isLoading, toast]);
 
   useEffect(() => {
     // 初始化波形显示
     if (containerRef.current && audioUrl) {
-      wavesurferRef.current = WaveSurfer.create({
-        container: containerRef.current,
-        waveColor: "violet",
-        progressColor: "purple",
-        cursorColor: "transparent",
-        barWidth: 2,
-        barRadius: 3,
-        height: 40,
-      });
-      wavesurferRef.current.load(audioUrl);
+      if (wavesurferRef.current) {
+        wavesurferRef.current.destroy();
+      }
+
+      try {
+        wavesurferRef.current = WaveSurfer.create({
+          container: containerRef.current,
+          waveColor: "violet",
+          progressColor: "purple",
+          cursorColor: "transparent",
+          barWidth: 2,
+          barRadius: 3,
+          height: 40,
+          normalize: true,
+        });
+
+        wavesurferRef.current.on("error", (err) => {
+          console.error("WaveSurfer 错误:", err);
+          toast({
+            title: "波形显示错误",
+            description: "无法加载音频波形",
+            status: "warning",
+            duration: 3000,
+            isClosable: true,
+          });
+        });
+
+        wavesurferRef.current.load(audioUrl);
+      } catch (error) {
+        console.error("WaveSurfer 初始化错误:", error);
+      }
     }
+
     return () => {
-      wavesurferRef.current?.destroy();
+      if (wavesurferRef.current) {
+        wavesurferRef.current.destroy();
+        wavesurferRef.current = null;
+      }
     };
-  }, [audioUrl]);
+  }, [audioUrl, toast]);
 
   useEffect(() => {
     // 生成三段冥想文案
@@ -183,14 +195,134 @@ const Meditation: React.FC = () => {
     }
   }, [state?.type, state?.scene]);
 
+  // 生成当前脚本的音频
+  useEffect(() => {
+    const generateScriptAudio = async () => {
+      if (meditationScripts.length > 0 && isScriptEnabled) {
+        try {
+          setIsScriptLoading(true);
+          const url = await meditationService.generateScriptAudio(
+            meditationScripts[currentScriptIndex]
+          );
+          setScriptAudioUrl(url);
+        } catch (error) {
+          console.error("生成脚本音频失败:", error);
+          toast({
+            title: "文案音频生成失败",
+            description: "无法生成文案音频，请稍后再试",
+            status: "error",
+            duration: 3000,
+            isClosable: true,
+          });
+        } finally {
+          setIsScriptLoading(false);
+        }
+      }
+    };
+
+    generateScriptAudio();
+
+    return () => {
+      if (scriptAudioRef.current) {
+        scriptAudioRef.current.pause();
+        scriptAudioRef.current = null;
+      }
+      // 清理临时 URL
+      if (scriptAudioUrl && !scriptAudioUrl.startsWith("/")) {
+        URL.revokeObjectURL(scriptAudioUrl);
+      }
+    };
+  }, [currentScriptIndex, meditationScripts, isScriptEnabled, toast]);
+
+  // 加载和控制脚本音频
+  useEffect(() => {
+    if (scriptAudioUrl && !isScriptLoading) {
+      const audio = new Audio(scriptAudioUrl);
+      scriptAudioRef.current = audio;
+
+      audio.addEventListener("error", (e) => {
+        console.error("脚本音频加载错误:", e);
+        toast({
+          title: "文案音频加载失败",
+          description: "无法加载文案音频文件",
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+        });
+      });
+
+      audio.addEventListener("ended", () => {
+        // 当前文案播放完毕，自动切换到下一段
+        if (
+          isScriptEnabled &&
+          currentScriptIndex < meditationScripts.length - 1
+        ) {
+          setCurrentScriptIndex((prev) => prev + 1);
+        }
+      });
+
+      // 如果背景音乐正在播放，自动播放脚本音频
+      if (isPlaying && isScriptEnabled) {
+        audio.play().catch((error) => {
+          console.error("脚本播放失败:", error);
+        });
+      }
+
+      return () => {
+        audio.pause();
+        audio.removeEventListener("error", () => {});
+        audio.removeEventListener("ended", () => {});
+      };
+    }
+  }, [
+    scriptAudioUrl,
+    isScriptLoading,
+    isPlaying,
+    isScriptEnabled,
+    toast,
+    currentScriptIndex,
+    meditationScripts.length,
+  ]);
+
   const handlePlayPause = () => {
     if (audioRef.current) {
       if (isPlaying) {
         audioRef.current.pause();
+        setIsPlaying(false);
+
+        // 同时暂停脚本音频
+        if (scriptAudioRef.current && isScriptEnabled) {
+          scriptAudioRef.current.pause();
+        }
       } else {
-        audioRef.current.play();
+        audioRef.current.play().catch((error) => {
+          console.error("播放失败:", error);
+          toast({
+            title: "播放失败",
+            description: "无法播放音频文件",
+            status: "error",
+            duration: 3000,
+            isClosable: true,
+          });
+        });
+        setIsPlaying(true);
+
+        // 同时播放脚本音频
+        if (scriptAudioRef.current && isScriptEnabled) {
+          scriptAudioRef.current.play().catch((error) => {
+            console.error("脚本播放失败:", error);
+          });
+        }
       }
-      setIsPlaying(!isPlaying);
+
+      // 同步波形显示
+      if (wavesurferRef.current) {
+        if (isPlaying) {
+          wavesurferRef.current.pause();
+        } else {
+          wavesurferRef.current.play();
+        }
+      }
     }
   };
 
@@ -213,6 +345,11 @@ const Meditation: React.FC = () => {
   };
 
   const handleNextScript = () => {
+    // 停止当前脚本音频
+    if (scriptAudioRef.current && isScriptEnabled) {
+      scriptAudioRef.current.pause();
+    }
+
     setCurrentScriptIndex((prev) => (prev + 1) % meditationScripts.length);
   };
 
@@ -223,6 +360,42 @@ const Meditation: React.FC = () => {
       status: "success",
       duration: 2000,
     });
+  };
+
+  const toggleScript = () => {
+    if (isScriptEnabled) {
+      // 关闭脚本朗读
+      if (scriptAudioRef.current) {
+        scriptAudioRef.current.pause();
+      }
+      setIsScriptEnabled(false);
+    } else {
+      // 开启脚本朗读
+      setIsScriptEnabled(true);
+      if (isPlaying && scriptAudioRef.current) {
+        scriptAudioRef.current.play().catch((error) => {
+          console.error("脚本播放失败:", error);
+        });
+      }
+    }
+  };
+
+  const getMeditationTypeLabel = (type: string): string => {
+    const typeLabels: Record<string, string> = {
+      sleep: "睡前放松",
+      morning: "早安觉醒",
+      work: "工作小憩",
+      emotion: "情绪疗愈",
+      wealth: "财富显化",
+      energy: "重启能量",
+      anxiety: "焦虑释放",
+      focus: "专注练习",
+      compassion: "自我慈悲",
+      sos: "情绪SOS",
+      breathing: "呼吸引导",
+      "sleep-music": "伴你入眠",
+    };
+    return typeLabels[type] || "冥想";
   };
 
   return (
@@ -262,14 +435,30 @@ const Meditation: React.FC = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <Text
-          fontSize="xl"
-          fontWeight="bold"
-          textAlign="center"
-          color="gray.700"
-        >
-          {state?.scene || "冥想场景"}
-        </Text>
+        <HStack spacing={2} alignSelf="center">
+          <Text
+            fontSize="xl"
+            fontWeight="bold"
+            textAlign="center"
+            color="gray.700"
+            flex="1"
+          >
+            {state?.scene || "冥想场景"}
+          </Text>
+          {state?.type && (
+            <Box
+              bg="purple.100"
+              color="purple.700"
+              px={2}
+              py={1}
+              borderRadius="md"
+              fontSize="xs"
+              fontWeight="bold"
+            >
+              {getMeditationTypeLabel(state.type)}
+            </Box>
+          )}
+        </HStack>
 
         {isLoading ? (
           <VStack spacing={4}>
@@ -278,6 +467,23 @@ const Meditation: React.FC = () => {
           </VStack>
         ) : (
           <>
+            <FormControl display="flex" alignItems="center">
+              <FormLabel
+                htmlFor="script-toggle"
+                mb="0"
+                fontSize="sm"
+                color="gray.600"
+              >
+                文案朗读
+              </FormLabel>
+              <Switch
+                id="script-toggle"
+                isChecked={isScriptEnabled}
+                onChange={toggleScript}
+                colorScheme="purple"
+              />
+            </FormControl>
+
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentScriptIndex}
@@ -294,6 +500,9 @@ const Meditation: React.FC = () => {
                   mb={6}
                 >
                   {meditationScripts[currentScriptIndex]}
+                  {isScriptLoading && (
+                    <Spinner size="sm" color="purple.500" ml={2} />
+                  )}
                 </Text>
               </motion.div>
             </AnimatePresence>

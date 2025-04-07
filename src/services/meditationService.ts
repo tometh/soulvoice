@@ -100,22 +100,22 @@ ${type === "sleep" ? "祝你好梦..." : "愿你拥有美好的一天..."}`;
   }
 
   getDefaultAudioByType(type: string): string {
-    // 使用相对于 public 目录的路径
+    // 检查默认音频文件是否存在
     const defaultAudios: { [key: string]: string } = {
-      sleep: "./meditation/sleep.mp3",
-      morning: "./meditation/morning.mp3",
-      work: "./meditation/work.mp3",
-      emotion: "./meditation/emotion.mp3",
-      wealth: "./meditation/wealth.mp3",
-      energy: "./meditation/energy.mp3",
-      anxiety: "./meditation/anxiety.mp3",
-      focus: "./meditation/focus.mp3",
-      compassion: "./meditation/compassion.mp3",
-      sos: "./meditation/sos.mp3",
-      breathing: "./meditation/breathing.mp3",
-      "sleep-music": "./meditation/music.mp3",
+      sleep: "/meditation/music.mp3",
+      morning: "/meditation/music.mp3",
+      work: "/meditation/music.mp3",
+      emotion: "/meditation/music.mp3",
+      wealth: "/meditation/music.mp3",
+      energy: "/meditation/music.mp3",
+      anxiety: "/meditation/music.mp3",
+      focus: "/meditation/music.mp3",
+      compassion: "/meditation/music.mp3",
+      sos: "/meditation/music.mp3",
+      breathing: "/meditation/music.mp3",
+      "sleep-music": "/meditation/music.mp3",
     };
-    return defaultAudios[type] || "./meditation/music.mp3";
+    return defaultAudios[type] || "/meditation/music.mp3";
   }
 
   generateMeditationScripts(type: string, scene: string): string[] {
@@ -150,6 +150,17 @@ ${type === "sleep" ? "祝你好梦..." : "愿你拥有美好的一天..."}`;
     }
 
     return script;
+  }
+
+  async generateScriptAudio(text: string): Promise<string> {
+    try {
+      // 使用 voiceService 生成音频
+      const audioUrl = await voiceService.textToSpeech(text);
+      return audioUrl;
+    } catch (error) {
+      console.error("生成文案音频失败:", error);
+      throw error;
+    }
   }
 }
 

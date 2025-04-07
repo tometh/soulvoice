@@ -7,12 +7,15 @@ import {
   useToast,
   Heading,
   Button,
+  HStack,
+  Tag,
 } from "@chakra-ui/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { voiceService } from "../services/voiceService";
 import LoadingDots from "../components/LoadingDots";
 import { EmotionCard } from "../components/EmotionCard";
+import { useVoice } from "../contexts/VoiceContext";
 
 const MotionBox = motion(Box);
 
@@ -61,6 +64,7 @@ const TodayFeeling: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const toast = useToast();
   const navigate = useNavigate();
+  const { selectedVoice } = useVoice();
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -157,17 +161,45 @@ const TodayFeeling: React.FC = () => {
     };
   }, []);
 
-  const handleMeditate = () => {
-    if (emotionResult && audioUrl) {
-      const scene =
-        emotionResult.suggestions[emotionResult.suggestions.length - 1];
-      navigate("/meditation", {
-        state: {
-          audioUrl,
-          scene,
-        },
-      });
-    }
+  const handleMeditation = (emotion: string) => {
+    // 根据情绪类型选择对应的冥想类型和场景
+    const meditationType = getMeditationTypeByEmotion(emotion);
+    const meditationScene = getMeditationSceneByEmotion(emotion);
+    navigate("/meditation", {
+      state: {
+        type: meditationType,
+        scene: meditationScene,
+      },
+    });
+  };
+
+  const getMeditationTypeByEmotion = (emotion: string): string => {
+    // 根据情绪选择合适的冥想类型
+    const typeMap: Record<string, string> = {
+      喜悦: "morning",
+      悲伤: "emotion",
+      愤怒: "anxiety",
+      恐惧: "breathing",
+      焦虑: "anxiety",
+      平静: "focus",
+      厌恶: "compassion",
+      惊讶: "energy",
+    };
+    return typeMap[emotion] || "emotion";
+  };
+
+  const getMeditationSceneByEmotion = (emotion: string): string => {
+    const sceneMap: Record<string, string> = {
+      喜悦: "阳光洒落的森林小径，鸟儿在枝头欢唱",
+      悲伤: "宁静的湖边，涟漪轻轻荡漾",
+      愤怒: "平静的山谷，微风吹拂着脸颊",
+      恐惧: "安全的小屋，壁炉里的火焰温暖舒适",
+      焦虑: "空旷的草原，柔软的风抚过每一寸肌肤",
+      平静: "清澈的溪流，水声轻快地流淌",
+      厌恶: "整洁的空间，淡淡的花香弥漫",
+      惊讶: "宽阔的海滩，波浪有节奏地拍打岸边",
+    };
+    return sceneMap[emotion] || "平静喜悦";
   };
 
   return (
@@ -182,6 +214,24 @@ const TodayFeeling: React.FC = () => {
         p={4}
       >
         <VStack spacing={8} mt={8}>
+          {/* 当前使用的声音 */}
+          <HStack
+            bg="white"
+            p={2}
+            borderRadius="full"
+            spacing={2}
+            boxShadow="sm"
+            onClick={() => navigate("/voice-selection")}
+            cursor="pointer"
+          >
+            <Text fontSize="sm" color="gray.600">
+              当前声音: {selectedVoice.name}
+            </Text>
+            <Tag size="sm" colorScheme="purple" variant="subtle">
+              #{selectedVoice.type}
+            </Tag>
+          </HStack>
+
           {!isAnalyzing && !emotionResult && (
             <>
               <Heading
@@ -228,7 +278,7 @@ const TodayFeeling: React.FC = () => {
                     duration: 2000,
                   });
                 }}
-                onMeditate={handleMeditate}
+                onMeditate={() => handleMeditation(emotionResult.emotion)}
                 onShare={() => {
                   toast({
                     title: "分享功能开发中",

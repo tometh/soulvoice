@@ -6,22 +6,27 @@ import Profile from "./pages/Profile";
 import BottomNav from "./components/BottomNav";
 import Meditation from "./pages/Meditation";
 import MeditationList from "./pages/MeditationList";
+import VoiceStore from "./pages/VoiceStore";
+import { VoiceProvider } from "./contexts/VoiceContext";
 
 function App() {
   return (
     <ChakraProvider>
-      <Router>
-        <Box pb="70px">
-          <Routes>
-            <Route path="/" element={<TodayFeeling />} />
-            <Route path="/voice-selection" element={<VoiceSelection />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/meditation" element={<Meditation />} />
-            <Route path="/meditation-list" element={<MeditationList />} />
-          </Routes>
-        </Box>
-        <BottomNav />
-      </Router>
+      <VoiceProvider>
+        <Router>
+          <Box pb="70px">
+            <Routes>
+              <Route path="/" element={<TodayFeeling />} />
+              <Route path="/voice-selection" element={<VoiceSelection />} />
+              <Route path="/voice-store" element={<VoiceStore />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/meditation" element={<Meditation />} />
+              <Route path="/meditation-list" element={<MeditationList />} />
+            </Routes>
+          </Box>
+          <BottomNav />
+        </Router>
+      </VoiceProvider>
     </ChakraProvider>
   );
 }
