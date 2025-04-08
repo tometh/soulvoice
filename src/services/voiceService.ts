@@ -702,7 +702,7 @@ class VoiceService {
     try {
       console.log(text, "-----");
       console.log(selectedVoice.name, "----");
-      const url = `https://7513814c8b5b.ngrok.app/tts?text=${text}&text_lang=zh&ref_audio_path=${selectedVoice.name}&prompt_lang=zh&prompt_text=&text_split_method=cut5&batch_size=1&media_type=wav&streaming_mode=true`;
+      const url = `https://7513814c8b5b.ngrok.app/tts?text=${text}&text_lang=zh&ref_audio_path=${selectedVoice.name}&prompt_lang=zh&prompt_text=&text_split_method=cut0&batch_size=1&media_type=wav&streaming_mode=true`;
       const response = await axios.get(url, {
         responseType: "arraybuffer", // 明确指定响应为二进制数据
       });
