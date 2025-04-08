@@ -696,31 +696,40 @@ class VoiceService {
 
   async textToSpeech(text: string): Promise<string> {
     try {
-      const response = await axios.post(
-        "https://eastasia.tts.speech.microsoft.com/cognitiveservices/v1",
-        `<speak version='1.0' xml:lang='zh-CN'>
-          <voice xml:lang='zh-CN' xml:gender='Female' name='zh-CN-XiaoxiaoNeural'>
-            <prosody rate="-10%" pitch="-5%">
-              ${text}
-            </prosody>
-          </voice>
-        </speak>`,
+      const response = await axios.get(
+        `https://7513814c8b5b.ngrok.app/tts?text=${encodeURIComponent(
+          text
+        )}&text_lang=zh&ref_audio_path=t1&prompt_lang=zh&prompt_text=&text_split_method=cut5&batch_size=1&media_type=wav&streaming_mode=true&speed_factor=0.7`,
         {
-          headers: {
-            "Content-Type": "application/ssml+xml",
-            "X-Microsoft-OutputFormat": "audio-16khz-128kbitrate-mono-mp3",
-            "Ocp-Apim-Subscription-Key": import.meta.env.VITE_AZURE_TTS_KEY,
-            "User-Agent": "SoulVoice",
-          },
-          responseType: "arraybuffer",
+          responseType: "arraybuffer", // 明确指定响应为二进制数据
         }
       );
 
-      // 将音频数据转换为 Blob
-      const audioBlob = new Blob([response.data], { type: "audio/mp3" });
+      // 检查 Content-Type 是否为音频格式
+      const contentType = response.headers["content-type"];
+      if (!contentType || !contentType.includes("audio")) {
+        throw new Error(
+          "Response is not audio data. Content-Type: " + contentType
+        );
+      }
+
+      // 将二进制数据转换为 Blob
+      const audioBlob = new Blob([response.data], { type: "audio/wav" });
 
       // 创建临时 URL
       const audioUrl = URL.createObjectURL(audioBlob);
+
+      // const response = await axios.get(
+      //   `https://7513814c8b5b.ngrok.app/tts?text=${text}&text_lang=zh&ref_audio_path=t1&prompt_lang=zh&prompt_text=&text_split_method=cut5&batch_size=1&media_type=wav&streaming_mode=true&speed_factor=0.7`
+      // );
+
+      // console.log(response.data, "response.data");
+
+      // // 将 RIFF 数据转换为 WAV Blob
+      // const audioBlob = new Blob([response.data], { type: "audio/wav" });
+
+      // // 创建临时 URL
+      // const audioUrl = URL.createObjectURL(audioBlob);
       return audioUrl;
     } catch (error) {
       console.error("TTS API 调用失败:", error);

@@ -4,6 +4,7 @@ interface Voice {
   id: string;
   name: string;
   type: "default" | "custom" | "purchased" | "system";
+  audioUrl?: string;
 }
 
 interface VoiceContextType {
@@ -16,6 +17,7 @@ const defaultVoice: Voice = {
   id: "default-voice",
   name: "温柔女声",
   type: "default",
+  audioUrl: "/meditation/music1.wav",
 };
 
 // 创建上下文

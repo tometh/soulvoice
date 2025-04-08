@@ -23,7 +23,14 @@ import {
   Tag,
 } from "@chakra-ui/react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FaMicrophone, FaUpload, FaTimes, FaTrash } from "react-icons/fa";
+import {
+  FaMicrophone,
+  FaUpload,
+  FaTimes,
+  FaTrash,
+  FaPlay,
+  FaPause,
+} from "react-icons/fa";
 import { voiceService } from "../services/voiceService";
 import { useVoice } from "../contexts/VoiceContext";
 
@@ -39,6 +46,7 @@ interface SelectedVoice {
   id: string;
   name: string;
   type: "custom" | "purchased" | "system";
+  audioUrl?: string;
 }
 
 // 生成随机浅色
@@ -60,12 +68,10 @@ const VoiceSelection: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { selectedVoice, setSelectedVoice } = useVoice();
-
-  // Mock 自己上传的声音
-  const mockUploads = [
-    { id: "up1", name: "upload1", color: "purple.100" },
-    { id: "up2", name: "upload2", color: "blue.100" },
-  ];
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(
+    null
+  );
 
   // Mock 已购声音
   const purchasedVoices = [
@@ -76,6 +82,7 @@ const VoiceSelection: React.FC = () => {
       image:
         "https://img.win3000.com/m00/97/f3/5eb33a8f4b9d9b59bddabdbeb6fd4d3a_c_345_458.jpg",
       bgColor: "#EDE9FF",
+      audioUrl: "/meditation/music1.wav",
     },
     {
       id: "p2",
@@ -84,6 +91,7 @@ const VoiceSelection: React.FC = () => {
       image:
         "https://bpic.588ku.com/element_pic/23/04/25/fe973e002aa577c473fc1fd8e3780615.png!/fw/350/quality/99/unsharp/true/compress/true",
       bgColor: "#EFF6FF",
+      audioUrl: "/meditation/music1.wav",
     },
   ];
 
@@ -95,6 +103,7 @@ const VoiceSelection: React.FC = () => {
       description: "Please upload a clear, unobstructed voice clip(10-60s)",
       image: "https://t1.tp88.net/tp88/uploads/allimg/191213/1G0213057-0.jpg",
       bgColor: "#FCE7F3",
+      audioUrl: "/meditation/music1.wav",
     },
     {
       id: "sys2",
@@ -103,6 +112,7 @@ const VoiceSelection: React.FC = () => {
       image:
         "https://s.alicdn.com/@sc04/kf/H0ab28dbdeb85479eab7fc548e2755824f.jpg_720x720q50.jpg",
       bgColor: "#FDF2F8",
+      audioUrl: "/meditation/music1.wav",
     },
     {
       id: "sys3",
@@ -111,6 +121,7 @@ const VoiceSelection: React.FC = () => {
       image:
         "https://bpic.588ku.com/element_pic/23/07/04/7833d9718e47f0084c4f05fe3b1302f1.jpg!/fw/350/quality/99/unsharp/true/compress/true",
       bgColor: "#EFF6FF",
+      audioUrl: "/meditation/music1.wav",
     },
     {
       id: "sys4",
@@ -119,6 +130,7 @@ const VoiceSelection: React.FC = () => {
       image:
         "https://img.freepik.com/premium-vector/cute-grandfather-old-man-elder-cartoon-illustration_1058532-12606.jpg",
       bgColor: "#DBEAFE",
+      audioUrl: "/meditation/music1.wav",
     },
   ];
 
@@ -128,9 +140,16 @@ const VoiceSelection: React.FC = () => {
 
   const fetchCustomVoices = async () => {
     try {
-      const response = await fetch("http://192.168.1.4:9880/voices");
+      const response = await fetch(
+        "https://7513814c8b5b.ngrok.app/voices_list",
+        {
+          method: "GET",
+        }
+      );
+
       const data = await response.json();
-      setCustomVoices(data);
+      console.log(data, "data");
+      setCustomVoices(data.voices);
     } catch {
       toast({
         title: "获取声音列表失败",
@@ -197,7 +216,9 @@ const VoiceSelection: React.FC = () => {
       const formData = new FormData();
       formData.append("file", audioBlob);
 
-      const response = await fetch("http://192.168.1.4:9880/upload", {
+      console.log(formData);
+
+      const response = await fetch("https://7513814c8b5b.ngrok.app/upload", {
         method: "POST",
         body: formData,
       });
@@ -232,9 +253,10 @@ const VoiceSelection: React.FC = () => {
   const handleSelectVoice = (
     id: string,
     name: string,
-    type: "custom" | "purchased" | "system"
+    type: "custom" | "purchased" | "system",
+    audioUrl: string
   ) => {
-    setTempSelectedVoice({ id, name, type });
+    setTempSelectedVoice({ id, name, type, audioUrl });
     toast({
       title: "已选择声音",
       description: `您选择了 ${name}`,
@@ -254,6 +276,7 @@ const VoiceSelection: React.FC = () => {
         id: tempSelectedVoice.id,
         name: tempSelectedVoice.name,
         type: tempSelectedVoice.type,
+        audioUrl: tempSelectedVoice.audioUrl,
       });
 
       toast({
@@ -265,6 +288,70 @@ const VoiceSelection: React.FC = () => {
       });
     }
   };
+
+  // 播放声音样本
+  const handlePlayVoice = (audioUrl: string, event: React.MouseEvent) => {
+    event.stopPropagation(); // 阻止冒泡，避免触发选择声音
+
+    // 如果当前有音频在播放，先停止
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+    }
+
+    // 如果点击的是当前正在播放的声音，则停止播放
+    if (isPlaying && currentAudio?.src.includes(audioUrl)) {
+      setIsPlaying(false);
+      setCurrentAudio(null);
+      return;
+    }
+
+    // 创建新的音频并播放
+    const audio = new Audio(audioUrl);
+    audio.addEventListener("ended", () => {
+      setIsPlaying(false);
+      setCurrentAudio(null);
+    });
+
+    audio
+      .play()
+      .then(() => {
+        setIsPlaying(true);
+        setCurrentAudio(audio);
+      })
+      .catch((error) => {
+        console.error("播放失败:", error);
+        toast({
+          title: "播放失败",
+          description: "无法播放该声音样本",
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+        });
+      });
+  };
+
+  // 停止播放
+  const handleStopPlayback = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+      setIsPlaying(false);
+      setCurrentAudio(null);
+    }
+  };
+
+  // 在组件卸载时清理音频资源
+  useEffect(() => {
+    return () => {
+      if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+        setCurrentAudio(null);
+      }
+    };
+  }, [currentAudio]);
 
   return (
     <AnimatePresence mode="wait">
@@ -323,31 +410,6 @@ const VoiceSelection: React.FC = () => {
               </Text>
             </Box>
 
-            {/* Mock上传的声音 */}
-            {mockUploads.map((voice) => (
-              <Box
-                key={voice.id}
-                minW="80px"
-                h="80px"
-                mr={3}
-                borderRadius="xl"
-                bg={voice.color}
-                cursor="pointer"
-                display="flex"
-                alignItems="center"
-                justifyContent="center"
-                _hover={{ transform: "scale(1.05)" }}
-                transition="transform 0.2s"
-                onClick={() =>
-                  handleSelectVoice(voice.id, voice.name, "custom")
-                }
-              >
-                <Text color="white" fontWeight="bold">
-                  {voice.name}
-                </Text>
-              </Box>
-            ))}
-
             {/* 接口返回的声音 */}
             {customVoices.map((voice) => (
               <Box
@@ -364,7 +426,7 @@ const VoiceSelection: React.FC = () => {
                 _hover={{ transform: "scale(1.05)" }}
                 transition="transform 0.2s"
                 onClick={() =>
-                  handleSelectVoice(voice.id, voice.name, "custom")
+                  handleSelectVoice(voice.id, voice.name, "custom", voice.url)
                 }
               >
                 <Text color="white" fontWeight="bold">
@@ -397,7 +459,12 @@ const VoiceSelection: React.FC = () => {
               _hover={{ transform: "scale(1.02)" }}
               transition="transform 0.2s"
               onClick={() =>
-                handleSelectVoice(voice.id, voice.name, "purchased")
+                handleSelectVoice(
+                  voice.id,
+                  voice.name,
+                  "purchased",
+                  voice.audioUrl
+                )
               }
             >
               <HStack spacing={4}>
@@ -445,7 +512,14 @@ const VoiceSelection: React.FC = () => {
               cursor="pointer"
               _hover={{ transform: "scale(1.02)" }}
               transition="transform 0.2s"
-              onClick={() => handleSelectVoice(voice.id, voice.name, "system")}
+              onClick={() =>
+                handleSelectVoice(
+                  voice.id,
+                  voice.name,
+                  "system",
+                  voice.audioUrl
+                )
+              }
             >
               <HStack spacing={4}>
                 <Image
@@ -496,16 +570,44 @@ const VoiceSelection: React.FC = () => {
                   voice
                 </Tag>
               </HStack>
-              {tempSelectedVoice && (
-                <IconButton
-                  aria-label="删除声音"
-                  icon={<FaTrash />}
-                  size="sm"
-                  variant="ghost"
-                  colorScheme="red"
-                  onClick={handleRemoveSelectedVoice}
-                />
-              )}
+              <HStack>
+                {/* 添加播放按钮 */}
+                {isPlaying && currentAudio ? (
+                  <IconButton
+                    aria-label="暂停播放"
+                    icon={<FaPause />}
+                    size="sm"
+                    colorScheme="purple"
+                    variant="ghost"
+                    onClick={handleStopPlayback}
+                  />
+                ) : (
+                  <IconButton
+                    aria-label="播放声音样本"
+                    icon={<FaPlay />}
+                    size="sm"
+                    colorScheme="purple"
+                    variant="ghost"
+                    onClick={(e) => {
+                      const voiceInfo = tempSelectedVoice || selectedVoice;
+                      // 使用保存的audioUrl
+                      const audioUrl =
+                        voiceInfo.audioUrl || "/meditation/music1.wav";
+                      handlePlayVoice(audioUrl, e);
+                    }}
+                  />
+                )}
+                {tempSelectedVoice && (
+                  <IconButton
+                    aria-label="删除声音"
+                    icon={<FaTrash />}
+                    size="sm"
+                    variant="ghost"
+                    colorScheme="red"
+                    onClick={handleRemoveSelectedVoice}
+                  />
+                )}
+              </HStack>
             </HStack>
           )}
 
@@ -570,19 +672,25 @@ const VoiceSelection: React.FC = () => {
                 {audioUrl && (
                   <Box w="100%">
                     <Text mb={2}>预览:</Text>
-                    <audio controls src={audioUrl} style={{ width: "100%" }} />
-                    <HStack justifyContent="flex-end" mt={2}>
-                      <IconButton
-                        aria-label="删除录音"
-                        icon={<FaTimes />}
-                        onClick={() => {
-                          setAudioUrl(null);
-                          setAudioBlob(null);
-                        }}
-                        colorScheme="red"
-                        variant="ghost"
+                    <Box display="flex" alignItems="center">
+                      <audio
+                        controls
+                        src={audioUrl}
+                        style={{ width: "100%" }}
                       />
-                    </HStack>
+                      <HStack justifyContent="flex-end" mt={2}>
+                        <IconButton
+                          aria-label="删除录音"
+                          icon={<FaTimes />}
+                          onClick={() => {
+                            setAudioUrl(null);
+                            setAudioBlob(null);
+                          }}
+                          colorScheme="red"
+                          variant="ghost"
+                        />
+                      </HStack>
+                    </Box>
                   </Box>
                 )}
               </VStack>

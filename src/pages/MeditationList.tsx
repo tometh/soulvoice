@@ -44,7 +44,7 @@ const meditationItems: MeditationItem[] = [
     description: "放下今天的重量，温柔入眠",
     icon: FaMoon,
     emoji: "🌙",
-    audioUrl: "/meditations/sleep.mp3",
+    audioUrl: "/meditations/music.wav",
     scene: "想象自己躺在柔软的云朵上，随着轻柔的夜风缓缓飘荡...",
   },
   {
@@ -53,7 +53,7 @@ const meditationItems: MeditationItem[] = [
     description: "以清晰和勇气开启新的一天",
     icon: FaSun,
     emoji: "☀️",
-    audioUrl: "/meditations/morning.mp3",
+    audioUrl: "/meditations/music1.wav",
     scene: "晨光透过树叶洒在你的脸上，带来温暖的能量...",
   },
   {
@@ -62,7 +62,7 @@ const meditationItems: MeditationItem[] = [
     description: "10分钟安静，让注意力归位",
     icon: FaBriefcase,
     emoji: "🧘",
-    audioUrl: "/meditations/work.mp3",
+    audioUrl: "/meditations/music2.wav",
     scene: "在繁忙中找到一片宁静的绿洲，让思绪沉淀...",
   },
   {
@@ -71,7 +71,7 @@ const meditationItems: MeditationItem[] = [
     description: "不被情绪压垮，用声音自我复位",
     icon: FaHeart,
     emoji: "💞",
-    audioUrl: "/meditations/emotion.mp3",
+    audioUrl: "/meditations/emotion.wav",
     scene: "让温暖的阳光照进心房，融化所有的不安...",
   },
   {
@@ -80,7 +80,7 @@ const meditationItems: MeditationItem[] = [
     description: "打开丰盛之门，激活内在信念",
     icon: FaCoins,
     emoji: "💰",
-    audioUrl: "/meditations/wealth.mp3",
+    audioUrl: "/meditations/wealth.wav",
     scene: "宇宙的能量在你周围流动，带来无限的可能...",
   },
   {
@@ -89,7 +89,7 @@ const meditationItems: MeditationItem[] = [
     description: "在倦怠中恢复自我火力与动力",
     icon: FaBolt,
     emoji: "🔥",
-    audioUrl: "/meditations/energy.mp3",
+    audioUrl: "/meditations/energy.wav",
     scene: "感受内在的火焰重新燃起，温暖全身...",
   },
   {
@@ -98,7 +98,7 @@ const meditationItems: MeditationItem[] = [
     description: "学会让情绪缓缓流动、排解焦虑",
     icon: FaLeaf,
     emoji: "🍃",
-    audioUrl: "/meditations/anxiety.mp3",
+    audioUrl: "/meditations/anxiety.wav",
     scene: "像树叶一样轻轻飘落，随风舞动...",
   },
   {
@@ -107,7 +107,7 @@ const meditationItems: MeditationItem[] = [
     description: "训练脑力聚焦，减少分心想法",
     icon: FaBullseye,
     emoji: "🧠",
-    audioUrl: "/meditations/focus.mp3",
+    audioUrl: "/meditations/focus.wav",
     scene: "注意力如明亮的光束，照亮前方的道路...",
   },
   {
@@ -116,7 +116,7 @@ const meditationItems: MeditationItem[] = [
     description: "给自己一份不带评判的接纳",
     icon: FaLightbulb,
     emoji: "🕯️",
-    audioUrl: "/meditations/compassion.mp3",
+    audioUrl: "/meditations/compassion.wav",
     scene: "用温柔的目光看待自己，接纳所有的不完美...",
   },
   {
@@ -125,7 +125,7 @@ const meditationItems: MeditationItem[] = [
     description: "急救式语音支持，帮你稳住当下",
     icon: FaExclamationTriangle,
     emoji: "🌀",
-    audioUrl: "/meditations/sos.mp3",
+    audioUrl: "/meditations/sos.wav",
     scene: "在风暴中找到安全的港湾，慢慢平静下来...",
   },
   {
@@ -134,7 +134,7 @@ const meditationItems: MeditationItem[] = [
     description: "进入身体节奏，静静跟随呼吸",
     icon: FaWind,
     emoji: "🐚",
-    audioUrl: "/meditations/breathing.mp3",
+    audioUrl: "/meditations/breathing.wav",
     scene: "随着海浪的节奏，深深地呼吸...",
   },
   {
@@ -143,7 +143,7 @@ const meditationItems: MeditationItem[] = [
     description: "纯音乐 / 自然音，辅助快速入眠",
     icon: FaBed,
     emoji: "🛌",
-    audioUrl: "/meditations/sleep-music.mp3",
+    audioUrl: "/meditations/sleep-music.wav",
     scene: "在舒缓的音乐中，慢慢进入梦乡...",
   },
 ];

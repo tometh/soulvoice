@@ -23,12 +23,14 @@ const BottomNav = () => {
 
   return (
     <Box
-      position="fixed"
+      position="absolute"
+      maxWidth="570px"
+      margin="0 auto"
       bottom={0}
       left={0}
       right={0}
       bg={colorMode === "light" ? "white" : "gray.800"}
-      boxShadow="0 -2px 10px rgba(0,0,0,0.1)"
+      // boxShadow="0 -2px 10px rgba(0,0,0,0.1)"
       zIndex={1000}
     >
       <HStack justify="space-around" py={2}>

@@ -28,6 +28,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useLocation, useNavigate } from "react-router-dom";
 import { meditationService } from "../services/meditationService";
 import WaveSurfer from "wavesurfer.js";
+import axios from "axios";
 
 const formatTime = (seconds: number) => {
   const minutes = Math.floor(seconds / 60);
@@ -45,14 +46,14 @@ const Meditation: React.FC = () => {
   const [duration, setDuration] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [scriptAudioUrl, setScriptAudioUrl] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const scriptAudioRef = useRef<HTMLAudioElement | null>(null);
   const wavesurferRef = useRef<WaveSurfer | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isFavorited, setIsFavorited] = useState(false);
   const [currentScriptIndex, setCurrentScriptIndex] = useState(0);
   const [meditationScripts, setMeditationScripts] = useState<string[]>([]);
-  const [scriptAudioUrl, setScriptAudioUrl] = useState<string | null>(null);
-  const scriptAudioRef = useRef<HTMLAudioElement | null>(null);
   const [isScriptLoading, setIsScriptLoading] = useState(false);
   const [isScriptEnabled, setIsScriptEnabled] = useState(true);
 
@@ -62,23 +63,19 @@ const Meditation: React.FC = () => {
       return;
     }
 
-    const generateAudio = async () => {
+    // 加载背景音乐
+    const loadBackgroundMusic = async () => {
       try {
         setIsLoading(true);
-        const url = await meditationService.generateMeditationAudio({
-          type: state.type,
-          scene: state.scene,
-        });
-        setAudioUrl(url);
-      } catch (error) {
-        console.error("生成音频失败:", error);
-        // 直接使用默认音频
+        // 使用场景对应的默认音乐
         const defaultUrl = meditationService.getDefaultAudioByType(state.type);
         setAudioUrl(defaultUrl);
+      } catch (error) {
+        console.error("加载背景音乐失败:", error);
         toast({
-          title: "使用默认音频",
-          description: "已切换到默认冥想音乐",
-          status: "warning",
+          title: "加载背景音乐失败",
+          description: "请稍后重试",
+          status: "error",
           duration: 3000,
           isClosable: true,
         });
@@ -87,16 +84,22 @@ const Meditation: React.FC = () => {
       }
     };
 
-    generateAudio();
+    loadBackgroundMusic();
 
     return () => {
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
       }
-      // 清理临时 URL，但不清理默认音频 URL
+      if (scriptAudioRef.current) {
+        scriptAudioRef.current.pause();
+        scriptAudioRef.current = null;
+      }
       if (audioUrl && !audioUrl.startsWith("/meditation/")) {
         URL.revokeObjectURL(audioUrl);
+      }
+      if (scriptAudioUrl) {
+        URL.revokeObjectURL(scriptAudioUrl);
       }
     };
   }, [state?.type, state?.scene, navigate, toast]);
@@ -201,10 +204,26 @@ const Meditation: React.FC = () => {
       if (meditationScripts.length > 0 && isScriptEnabled) {
         try {
           setIsScriptLoading(true);
-          const url = await meditationService.generateScriptAudio(
+          const encodedText = encodeURIComponent(
             meditationScripts[currentScriptIndex]
           );
-          setScriptAudioUrl(url);
+          const url = `https://7513814c8b5b.ngrok.app/tts?text=${encodedText}&text_lang=zh&ref_audio_path=t1&prompt_lang=zh&prompt_text=&text_split_method=cut5&batch_size=1&media_type=wav&streaming_mode=true`;
+
+          const response = await axios.get(url, {
+            responseType: "arraybuffer",
+            timeout: 15000,
+            headers: {
+              Accept: "*/*",
+            },
+          });
+
+          if (!response.data || response.data.byteLength === 0) {
+            throw new Error("返回的音频数据为空");
+          }
+
+          const audioBlob = new Blob([response.data], { type: "audio/wav" });
+          const audioUrl = URL.createObjectURL(audioBlob);
+          setScriptAudioUrl(audioUrl);
         } catch (error) {
           console.error("生成脚本音频失败:", error);
           toast({
@@ -227,8 +246,7 @@ const Meditation: React.FC = () => {
         scriptAudioRef.current.pause();
         scriptAudioRef.current = null;
       }
-      // 清理临时 URL
-      if (scriptAudioUrl && !scriptAudioUrl.startsWith("/")) {
+      if (scriptAudioUrl) {
         URL.revokeObjectURL(scriptAudioUrl);
       }
     };

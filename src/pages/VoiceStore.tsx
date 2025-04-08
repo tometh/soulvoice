@@ -6,11 +6,11 @@ import {
   Button,
   Flex,
   Heading,
-  HStack,
-  Tag,
+  // HStack,
+  // Tag,
 } from "@chakra-ui/react";
 import { motion } from "framer-motion";
-import { useVoice } from "../contexts/VoiceContext";
+// import { useVoice } from "../contexts/VoiceContext";
 
 const MotionBox = motion(Box);
 
@@ -21,7 +21,7 @@ interface VoicePackItem {
 }
 
 const VoiceStore: React.FC = () => {
-  const { selectedVoice } = useVoice();
+  // const { selectedVoice } = useVoice();
 
   // Premium Voice Packs
   const premiumVoices: VoicePackItem[] = [
@@ -57,7 +57,7 @@ const VoiceStore: React.FC = () => {
   return (
     <Box bg="gray.50" minH="100vh" pb="80px">
       {/* 当前声音 */}
-      <Box p={4}>
+      {/* <Box p={4}>
         <Heading size="md" mb={4} fontWeight="bold">
           当前声音
         </Heading>
@@ -67,7 +67,7 @@ const VoiceStore: React.FC = () => {
             #{selectedVoice.type} voice
           </Tag>
         </HStack>
-      </Box>
+      </Box> */}
 
       {/* For You 部分 */}
       <Box p={4}>

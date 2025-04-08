@@ -102,20 +102,20 @@ ${type === "sleep" ? "祝你好梦..." : "愿你拥有美好的一天..."}`;
   getDefaultAudioByType(type: string): string {
     // 检查默认音频文件是否存在
     const defaultAudios: { [key: string]: string } = {
-      sleep: "/meditation/music.mp3",
-      morning: "/meditation/music.mp3",
-      work: "/meditation/music.mp3",
-      emotion: "/meditation/music.mp3",
-      wealth: "/meditation/music.mp3",
-      energy: "/meditation/music.mp3",
-      anxiety: "/meditation/music.mp3",
-      focus: "/meditation/music.mp3",
-      compassion: "/meditation/music.mp3",
-      sos: "/meditation/music.mp3",
-      breathing: "/meditation/music.mp3",
-      "sleep-music": "/meditation/music.mp3",
+      sleep: "/meditation/music.wav",
+      morning: "/meditation/music.wav",
+      work: "/meditation/music.wav",
+      emotion: "/meditation/music.wav",
+      wealth: "/meditation/music.wav",
+      energy: "/meditation/music.wav",
+      anxiety: "/meditation/music.wav",
+      focus: "/meditation/music.wav",
+      compassion: "/meditation/music.wav",
+      sos: "/meditation/music.wav",
+      breathing: "/meditation/music.wav",
+      "sleep-music": "/meditation/music.wav",
     };
-    return defaultAudios[type] || "/meditation/music.mp3";
+    return defaultAudios[type] || "/meditation/music.wav";
   }
 
   generateMeditationScripts(type: string, scene: string): string[] {

@@ -308,7 +308,7 @@ const TodayFeeling: React.FC = () => {
               </Button>
             </>
           ) : (
-            <Box position="relative" mt={20}>
+            <Box position="relative">
               <Circle
                 as={motion.div}
                 size="200px"
@@ -341,6 +341,77 @@ const TodayFeeling: React.FC = () => {
                   zIndex: -1,
                 }}
               >
+                <AnimatePresence>
+                  {isRecording && (
+                    <>
+                      <Circle
+                        as={motion.div}
+                        key="circle-1"
+                        position="absolute"
+                        size="100%"
+                        border="1.5px solid"
+                        borderColor="pink.300"
+                        opacity={0.7}
+                        initial={{ scale: 1, opacity: 0.7 }}
+                        animate={{
+                          scale: [1, 1.4, 1.8],
+                          opacity: [0.7, 0.3, 0],
+                        }}
+                        exit={{ opacity: 0, scale: 1 }}
+                        transition={{
+                          duration: 1.8,
+                          ease: "easeInOut",
+                          repeat: Infinity,
+                          repeatType: "loop",
+                        }}
+                      />
+                      <Circle
+                        as={motion.div}
+                        key="circle-2"
+                        position="absolute"
+                        size="100%"
+                        border="1.5px solid"
+                        borderColor="pink.200"
+                        opacity={0.5}
+                        initial={{ scale: 1, opacity: 0.5 }}
+                        animate={{
+                          scale: [1, 1.3, 1.6],
+                          opacity: [0.5, 0.2, 0],
+                        }}
+                        exit={{ opacity: 0, scale: 1 }}
+                        transition={{
+                          duration: 1.8,
+                          ease: "easeInOut",
+                          delay: 0.3,
+                          repeat: Infinity,
+                          repeatType: "loop",
+                        }}
+                      />
+                      <Circle
+                        as={motion.div}
+                        key="circle-3"
+                        position="absolute"
+                        size="100%"
+                        border="1.5px solid"
+                        borderColor="pink.100"
+                        opacity={0.4}
+                        initial={{ scale: 1, opacity: 0.4 }}
+                        animate={{
+                          scale: [1, 1.2, 1.4],
+                          opacity: [0.4, 0.2, 0],
+                        }}
+                        exit={{ opacity: 0, scale: 1 }}
+                        transition={{
+                          duration: 1.8,
+                          ease: "easeInOut",
+                          delay: 0.6,
+                          repeat: Infinity,
+                          repeatType: "loop",
+                        }}
+                      />
+                    </>
+                  )}
+                </AnimatePresence>
                 <Text fontSize="lg" color="gray.600">
                   {isRecording ? "松开结束" : "按住说话"}
                 </Text>
