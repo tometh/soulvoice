@@ -8,6 +8,13 @@ interface MeditationPrompt {
   duration?: number;
 }
 
+interface SelectedVoice {
+  id: string;
+  name: string;
+  audioUrl: string;
+  type: "custom" | "purchased" | "system";
+}
+
 class MeditationService {
   private generateMeditationScript(prompt: MeditationPrompt): string {
     const intro = this.getIntroByType(prompt.type);
@@ -123,45 +130,63 @@ ${type === "sleep" ? "祝你好梦..." : "愿你拥有美好的一天..."}`;
     return defaultAudios[type] || "/meditation/music.wav";
   }
 
-  }
   async generateMeditationScripts(
     type: string,
     scene: string,
-    selectedVoice: { name: string }
+    voice: SelectedVoice
   ): Promise<string> {
     try {
-      const prompt = `请生成一段${type}类型的冥想引导词，场景是${scene}。要求：1. 语言优美流畅；2. 富有画面感；3. 引导自然；4. 适合冥想场景。`;
-      const response = await axios.post(
+      const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+      if (!apiKey) {
+        throw new Error("OpenAI API key not found");
+      }
+
+      const response = await fetch(
         "https://api.openai.com/v1/chat/completions",
         {
-          model: "gpt-3.5-turbo",
-          messages: [
-            {
-              role: "system",
-              content:
-                "你是一个专业的冥想引导师，擅长创作各种类型的冥想引导词。",
-            },
-            {
-              role: "user",
-              content: prompt,
-            },
-          ],
-          temperature: 0.7,
-          max_tokens: 1000,
-        },
-        {
+          method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
+            Authorization: `Bearer ${apiKey}`,
           },
+          body: JSON.stringify({
+            model: "gpt-3.5-turbo",
+            messages: [
+              {
+                role: "system",
+                content:
+                  "你是一个专业的冥想引导师，擅长创作各种类型的冥想引导词。",
+              },
+              {
+                role: "user",
+                content: `请生成一段${type}冥想引导词，场景是${scene}，使用${voice.name}的声音风格。要求：1. 语言优美流畅；2. 引导自然；3. 时长约3分钟；4. 适合冥想场景。`,
+              },
+            ],
+            temperature: 0.7,
+            max_tokens: 1000,
+          }),
         }
       );
 
-      return response.data.choices[0].message.content;
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("API 错误响应:", errorData);
+        throw new Error(
+          `API 请求失败: ${response.status} ${response.statusText}`
+        );
+      }
+
+      const data = await response.json();
+
+      if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+        throw new Error("API 返回数据格式错误");
+      }
+
+      return data.choices[0].message.content;
     } catch (error) {
       console.error("生成冥想脚本失败:", error);
-      // 如果 API 调用失败，返回默认的冥想脚本
-      return this.getDefaultScriptByType(type, scene);
+      // 返回默认的冥想引导词
+      return `让我们开始一段${type}冥想。请找一个舒适的位置，闭上眼睛，深呼吸...感受${scene}带给你的宁静与平和。`;
     }
   }
 
