@@ -21,6 +21,7 @@ import {
   Flex,
   Image,
   Tag,
+  Spinner,
 } from "@chakra-ui/react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -33,11 +34,22 @@ import {
 } from "react-icons/fa";
 import { voiceService } from "../services/voiceService";
 import { useVoice } from "../contexts/VoiceContext";
+import axios from "axios";
 
 const MotionBox = motion(Box);
 
 interface CustomVoice {
   id: string;
+  name: string;
+  description: string;
+  image: string;
+  bgColor: string;
+  audioUrl: string;
+  url?: string;
+}
+
+interface Voice {
+  id: number;
   name: string;
   url: string;
 }
@@ -45,8 +57,8 @@ interface CustomVoice {
 interface SelectedVoice {
   id: string;
   name: string;
+  audioUrl: string;
   type: "custom" | "purchased" | "system";
-  audioUrl?: string;
 }
 
 // 生成随机浅色
@@ -72,6 +84,9 @@ const VoiceSelection: React.FC = () => {
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(
     null
   );
+  const [voices, setVoices] = useState<Voice[]>([]);
+  const [currentlyPlaying, setCurrentlyPlaying] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Mock 已购声音
   const purchasedVoices = [
@@ -136,6 +151,7 @@ const VoiceSelection: React.FC = () => {
 
   useEffect(() => {
     fetchCustomVoices();
+    fetchVoices();
   }, []);
 
   const fetchCustomVoices = async () => {
@@ -161,6 +177,43 @@ const VoiceSelection: React.FC = () => {
     }
   };
 
+  const fetchVoices = async () => {
+    try {
+      const response = await axios.get(
+        "https://7513814c8b5b.ngrok.app/voices_list"
+      );
+      const voiceUrls = response.data.voices;
+
+      // 处理声音列表
+      const processedVoices = voiceUrls.map((url: string, index: number) => {
+        // 从 URL 中提取文件名
+        const fileName = url.split("/").pop()?.replace(".wav", "") || "";
+        // 将文件名转换为更友好的显示名称
+        const displayName = fileName
+          .replace(/_/g, " ")
+          .replace(/([A-Z])/g, " $1")
+          .trim();
+
+        return {
+          id: index + 1,
+          name: displayName,
+          url: url,
+        };
+      });
+
+      setVoices(processedVoices);
+    } catch (error) {
+      console.error("获取声音列表失败:", error);
+      toast({
+        title: "获取声音列表失败",
+        description: "请稍后重试",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+  };
+
   const handleStartRecording = async () => {
     try {
       setIsRecording(true);
@@ -169,15 +222,15 @@ const VoiceSelection: React.FC = () => {
       await voiceService.startRecording(() => {
         console.log("正在录音...");
       });
-    } catch {
+    } catch (error) {
+      console.error("开始录音失败:", error);
       toast({
-        title: "错误",
-        description: "无法启动录音，请检查麦克风权限",
+        title: "开始录音失败",
+        description: "请检查麦克风权限",
         status: "error",
         duration: 3000,
         isClosable: true,
       });
-      setIsRecording(false);
     }
   };
 
@@ -289,56 +342,83 @@ const VoiceSelection: React.FC = () => {
     }
   };
 
-  // 播放声音样本
-  const handlePlayVoice = (audioUrl: string, event: React.MouseEvent) => {
-    event.stopPropagation(); // 阻止冒泡，避免触发选择声音
+  // 检查音频文件可访问性
+  const checkAudioAccessibility = async (audioUrl: string) => {
+    try {
+      const response = await fetch(audioUrl, {
+        method: "HEAD",
+        mode: "cors",
+      });
 
-    // 如果当前有音频在播放，先停止
-    if (currentAudio) {
-      currentAudio.pause();
-      currentAudio.currentTime = 0;
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const contentType = response.headers.get("content-type");
+      if (!contentType?.includes("audio/")) {
+        throw new Error("URL does not point to an audio file");
+      }
+
+      return true;
+    } catch (error) {
+      console.error("音频文件检查失败:", error);
+      return false;
     }
+  };
 
-    // 如果点击的是当前正在播放的声音，则停止播放
-    if (isPlaying && currentAudio?.src.includes(audioUrl)) {
-      setIsPlaying(false);
-      setCurrentAudio(null);
+  const handlePlaySample = async (audioUrl: string) => {
+    if (currentlyPlaying === audioUrl) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        setCurrentlyPlaying(null);
+      }
       return;
     }
 
-    // 创建新的音频并播放
-    const audio = new Audio(audioUrl);
-    audio.addEventListener("ended", () => {
-      setIsPlaying(false);
-      setCurrentAudio(null);
-    });
+    try {
+      // 先停止当前播放的音频
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
 
-    audio
-      .play()
-      .then(() => {
-        setIsPlaying(true);
-        setCurrentAudio(audio);
-      })
-      .catch((error) => {
-        console.error("播放失败:", error);
+      // 创建新的音频对象
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+
+      // 添加事件监听器
+      audio.addEventListener("error", (e) => {
+        console.error("音频加载错误:", e);
         toast({
-          title: "播放失败",
-          description: "无法播放该声音样本",
+          title: "音频加载失败",
+          description: "无法加载音频文件",
           status: "error",
           duration: 3000,
           isClosable: true,
         });
+        setCurrentlyPlaying(null);
       });
-  };
 
-  // 停止播放
-  const handleStopPlayback = (event: React.MouseEvent) => {
-    event.stopPropagation();
-    if (currentAudio) {
-      currentAudio.pause();
-      currentAudio.currentTime = 0;
-      setIsPlaying(false);
-      setCurrentAudio(null);
+      audio.addEventListener("loadeddata", () => {
+        console.log("音频加载完成");
+      });
+
+      audio.addEventListener("ended", () => {
+        setCurrentlyPlaying(null);
+      });
+
+      // 尝试播放音频
+      await audio.play();
+      setCurrentlyPlaying(audioUrl);
+    } catch (error) {
+      console.error("播放失败:", error);
+      toast({
+        title: "播放失败",
+        description: "无法播放音频文件",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+      setCurrentlyPlaying(null);
     }
   };
 
@@ -411,7 +491,7 @@ const VoiceSelection: React.FC = () => {
             </Box>
 
             {/* 接口返回的声音 */}
-            {customVoices.map((voice) => (
+            {voices.map((voice) => (
               <Box
                 key={voice.id}
                 minW="80px"
@@ -426,7 +506,12 @@ const VoiceSelection: React.FC = () => {
                 _hover={{ transform: "scale(1.05)" }}
                 transition="transform 0.2s"
                 onClick={() =>
-                  handleSelectVoice(voice.id, voice.name, "custom", voice.url)
+                  handleSelectVoice(
+                    String(voice.id),
+                    voice.name,
+                    "custom",
+                    voice.url || ""
+                  )
                 }
               >
                 <Text color="white" fontWeight="bold">
@@ -572,14 +657,20 @@ const VoiceSelection: React.FC = () => {
               </HStack>
               <HStack>
                 {/* 添加播放按钮 */}
-                {isPlaying && currentAudio ? (
+                {currentlyPlaying ===
+                (tempSelectedVoice?.audioUrl || selectedVoice?.audioUrl) ? (
                   <IconButton
                     aria-label="暂停播放"
                     icon={<FaPause />}
                     size="sm"
                     colorScheme="purple"
                     variant="ghost"
-                    onClick={handleStopPlayback}
+                    onClick={() => {
+                      if (audioRef.current) {
+                        audioRef.current.pause();
+                        setCurrentlyPlaying(null);
+                      }
+                    }}
                   />
                 ) : (
                   <IconButton
@@ -588,12 +679,11 @@ const VoiceSelection: React.FC = () => {
                     size="sm"
                     colorScheme="purple"
                     variant="ghost"
-                    onClick={(e) => {
+                    onClick={() => {
                       const voiceInfo = tempSelectedVoice || selectedVoice;
-                      // 使用保存的audioUrl
-                      const audioUrl =
-                        voiceInfo.audioUrl || "/meditation/music1.wav";
-                      handlePlayVoice(audioUrl, e);
+                      if (voiceInfo?.audioUrl) {
+                        handlePlaySample(voiceInfo.audioUrl);
+                      }
                     }}
                   />
                 )}

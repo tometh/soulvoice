@@ -1,4 +1,6 @@
 import { voiceService } from "./voiceService";
+import { useVoice } from "../contexts/VoiceContext";
+import axios from "axios";
 
 interface MeditationPrompt {
   type: string;
@@ -86,11 +88,14 @@ ${this.getTypeSpecificContent(type)}
 ${type === "sleep" ? "祝你好梦..." : "愿你拥有美好的一天..."}`;
   }
 
-  async generateMeditationAudio(prompt: MeditationPrompt): Promise<string> {
+  async generateMeditationAudio(
+    prompt: MeditationPrompt,
+    selectedVoice: { name: string }
+  ): Promise<string> {
     try {
       const script = this.generateMeditationScript(prompt);
       // 使用 voiceService 生成音频
-      const audioUrl = await voiceService.textToSpeech(script);
+      const audioUrl = await voiceService.textToSpeech(script, selectedVoice);
       return audioUrl;
     } catch (error) {
       console.error("生成冥想音频失败:", error);
@@ -103,12 +108,12 @@ ${type === "sleep" ? "祝你好梦..." : "愿你拥有美好的一天..."}`;
     // 检查默认音频文件是否存在
     const defaultAudios: { [key: string]: string } = {
       sleep: "/meditation/music.wav",
-      morning: "/meditation/music.wav",
-      work: "/meditation/music.wav",
-      emotion: "/meditation/music.wav",
-      wealth: "/meditation/music.wav",
-      energy: "/meditation/music.wav",
-      anxiety: "/meditation/music.wav",
+      morning: "/meditation/music1.wav",
+      work: "/meditation/music2.wav",
+      emotion: "/meditation/music1.wav",
+      wealth: "/meditation/music2.wav",
+      energy: "/meditation/music1.wav",
+      anxiety: "/meditation/music2.wav",
       focus: "/meditation/music.wav",
       compassion: "/meditation/music.wav",
       sos: "/meditation/music.wav",
@@ -118,44 +123,120 @@ ${type === "sleep" ? "祝你好梦..." : "愿你拥有美好的一天..."}`;
     return defaultAudios[type] || "/meditation/music.wav";
   }
 
-  generateMeditationScripts(type: string, scene: string): string[] {
-    const scripts: string[] = [];
-    const phases = ["开始", "进行中", "结束"];
-
-    phases.forEach((phase) => {
-      const script = this.generatePhaseScript(type, scene, phase);
-      scripts.push(script);
-    });
-
-    return scripts;
   }
-
-  private generatePhaseScript(
+  async generateMeditationScripts(
     type: string,
     scene: string,
-    phase: string
-  ): string {
-    let script = "";
+    selectedVoice: { name: string }
+  ): Promise<string> {
+    try {
+      const prompt = `请生成一段${type}类型的冥想引导词，场景是${scene}。要求：1. 语言优美流畅；2. 富有画面感；3. 引导自然；4. 适合冥想场景。`;
+      const response = await axios.post(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          model: "gpt-3.5-turbo",
+          messages: [
+            {
+              role: "system",
+              content:
+                "你是一个专业的冥想引导师，擅长创作各种类型的冥想引导词。",
+            },
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+          temperature: 0.7,
+          max_tokens: 1000,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
+          },
+        }
+      );
 
-    switch (phase) {
-      case "开始":
-        script = `${this.getIntroByType(type)}\n让我们进入${scene}的意境...`;
-        break;
-      case "进行中":
-        script = `${this.getMainContentByType(type, scene)}`;
-        break;
-      case "结束":
-        script = `${this.getOutroByType(type)}`;
-        break;
+      return response.data.choices[0].message.content;
+    } catch (error) {
+      console.error("生成冥想脚本失败:", error);
+      // 如果 API 调用失败，返回默认的冥想脚本
+      return this.getDefaultScriptByType(type, scene);
     }
-
-    return script;
   }
 
-  async generateScriptAudio(text: string): Promise<string> {
+  private getDefaultScriptByType(type: string, scene: string): string {
+    const defaultScripts: { [key: string]: string } = {
+      sleep: `让我们开始今晚的睡前放松冥想。请找一个舒适的位置躺下，深呼吸几次...
+
+现在，${scene}
+
+感受此刻的存在...
+
+让我们做几次深呼吸...
+吸气...2...3...4...
+呼气...2...3...4...5...6...
+再次吸气...感受空气流入身体...
+缓缓呼气...让所有的紧张都随之而去...
+继续保持这样的呼吸节奏...
+
+让每一次呼吸都带走今天的疲惫，感受身体渐渐放松，准备进入甜美的梦乡...
+
+慢慢地，让意识回到当下...
+感受此刻的平静与安宁...
+带着这份宁静的能量，继续你的旅程...
+祝你好梦...`,
+      morning: `早安。让我们以平和的心态开启新的一天。请保持坐姿放松...
+
+现在，${scene}
+
+感受此刻的存在...
+
+让我们做几次深呼吸...
+吸气...2...3...4...
+呼气...2...3...4...5...6...
+再次吸气...感受空气流入身体...
+缓缓呼气...让所有的紧张都随之而去...
+继续保持这样的呼吸节奏...
+
+让晨光唤醒你的每一个细胞，感受新的一天带来的无限可能...
+
+慢慢地，让意识回到当下...
+感受此刻的平静与安宁...
+带着这份宁静的能量，继续你的旅程...
+愿你拥有美好的一天...`,
+      // 添加其他类型的默认脚本...
+    };
+
+    return (
+      defaultScripts[type] ||
+      `让我们开始今天的冥想练习...
+
+现在，${scene}
+
+感受此刻的存在...
+
+让我们做几次深呼吸...
+吸气...2...3...4...
+呼气...2...3...4...5...6...
+再次吸气...感受空气流入身体...
+缓缓呼气...让所有的紧张都随之而去...
+继续保持这样的呼吸节奏...
+
+慢慢地，让意识回到当下...
+感受此刻的平静与安宁...
+带着这份宁静的能量，继续你的旅程...
+愿你拥有美好的一天...`
+    );
+  }
+
+  async generateScriptAudio(
+    text: string,
+    selectedVoice: { name: string }
+  ): Promise<string> {
     try {
       // 使用 voiceService 生成音频
-      const audioUrl = await voiceService.textToSpeech(text);
+      const audioUrl = await voiceService.textToSpeech(text, selectedVoice);
       return audioUrl;
     } catch (error) {
       console.error("生成文案音频失败:", error);

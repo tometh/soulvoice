@@ -29,6 +29,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { meditationService } from "../services/meditationService";
 import WaveSurfer from "wavesurfer.js";
 import axios from "axios";
+import { useVoice } from "../contexts/VoiceContext";
+import { voiceService } from "../services/voiceService";
 
 const formatTime = (seconds: number) => {
   const minutes = Math.floor(seconds / 60);
@@ -56,6 +58,7 @@ const Meditation: React.FC = () => {
   const [meditationScripts, setMeditationScripts] = useState<string[]>([]);
   const [isScriptLoading, setIsScriptLoading] = useState(false);
   const [isScriptEnabled, setIsScriptEnabled] = useState(true);
+  const { selectedVoice } = useVoice();
 
   useEffect(() => {
     if (!state?.type || !state?.scene) {
@@ -70,15 +73,35 @@ const Meditation: React.FC = () => {
         // 使用场景对应的默认音乐
         const defaultUrl = meditationService.getDefaultAudioByType(state.type);
         setAudioUrl(defaultUrl);
+
+        // 生成冥想脚本
+        const script = await meditationService.generateMeditationScripts(
+          state.type,
+          state.scene,
+          selectedVoice
+        );
+        setMeditationScripts([script]);
+
+        // 生成脚本音频
+        if (script) {
+          setIsScriptLoading(true);
+          const audioUrl = await voiceService.textToSpeech(
+            script,
+            selectedVoice
+          );
+          setScriptAudioUrl(audioUrl);
+          setIsScriptLoading(false);
+        }
       } catch (error) {
-        console.error("加载背景音乐失败:", error);
+        console.error("加载失败:", error);
         toast({
-          title: "加载背景音乐失败",
+          title: "加载失败",
           description: "请稍后重试",
           status: "error",
           duration: 3000,
           isClosable: true,
         });
+        navigate("/meditation-list");
       } finally {
         setIsLoading(false);
       }
@@ -102,7 +125,7 @@ const Meditation: React.FC = () => {
         URL.revokeObjectURL(scriptAudioUrl);
       }
     };
-  }, [state?.type, state?.scene, navigate, toast]);
+  }, [state?.type, state?.scene, navigate, toast, selectedVoice]);
 
   useEffect(() => {
     if (audioUrl && !isLoading) {
@@ -188,41 +211,81 @@ const Meditation: React.FC = () => {
   }, [audioUrl, toast]);
 
   useEffect(() => {
-    // 生成三段冥想文案
-    if (state?.scene) {
-      const scripts = meditationService.generateMeditationScripts(
-        state.type,
-        state.scene
-      );
-      setMeditationScripts(scripts);
+    if (scriptAudioUrl && !isScriptLoading) {
+      const audio = new Audio(scriptAudioUrl);
+      scriptAudioRef.current = audio;
+
+      audio.addEventListener("error", (e) => {
+        console.error("脚本音频加载错误:", e);
+        toast({
+          title: "文案音频加载失败",
+          description: "无法加载文案音频文件",
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+        });
+      });
+
+      audio.addEventListener("loadeddata", () => {
+        console.log("脚本音频加载完成");
+      });
+
+      audio.addEventListener("ended", () => {
+        // 当前文案播放完毕，自动切换到下一段
+        if (
+          isScriptEnabled &&
+          currentScriptIndex < meditationScripts.length - 1
+        ) {
+          setCurrentScriptIndex((prev) => prev + 1);
+        }
+      });
+
+      // 如果背景音乐正在播放，自动播放脚本音频
+      if (isPlaying && isScriptEnabled) {
+        audio.play().catch((error) => {
+          console.error("脚本播放失败:", error);
+          toast({
+            title: "脚本播放失败",
+            description: "无法播放文案音频",
+            status: "error",
+            duration: 3000,
+            isClosable: true,
+          });
+        });
+      }
+
+      return () => {
+        audio.pause();
+        audio.removeEventListener("error", () => {});
+        audio.removeEventListener("loadeddata", () => {});
+        audio.removeEventListener("ended", () => {});
+      };
     }
-  }, [state?.type, state?.scene]);
+  }, [
+    scriptAudioUrl,
+    isScriptLoading,
+    isPlaying,
+    isScriptEnabled,
+    toast,
+    currentScriptIndex,
+    meditationScripts.length,
+  ]);
 
   // 生成当前脚本的音频
   useEffect(() => {
     const generateScriptAudio = async () => {
-      if (meditationScripts.length > 0 && isScriptEnabled) {
+      if (
+        meditationScripts.length > 0 &&
+        isScriptEnabled &&
+        currentScriptIndex > 0
+      ) {
         try {
           setIsScriptLoading(true);
-          const encodedText = encodeURIComponent(
-            meditationScripts[currentScriptIndex]
+          const script = meditationScripts[currentScriptIndex];
+          const audioUrl = await voiceService.textToSpeech(
+            script,
+            selectedVoice
           );
-          const url = `https://7513814c8b5b.ngrok.app/tts?text=${encodedText}&text_lang=zh&ref_audio_path=t1&prompt_lang=zh&prompt_text=&text_split_method=cut5&batch_size=1&media_type=wav&streaming_mode=true`;
-
-          const response = await axios.get(url, {
-            responseType: "arraybuffer",
-            timeout: 15000,
-            headers: {
-              Accept: "*/*",
-            },
-          });
-
-          if (!response.data || response.data.byteLength === 0) {
-            throw new Error("返回的音频数据为空");
-          }
-
-          const audioBlob = new Blob([response.data], { type: "audio/wav" });
-          const audioUrl = URL.createObjectURL(audioBlob);
           setScriptAudioUrl(audioUrl);
         } catch (error) {
           console.error("生成脚本音频失败:", error);
@@ -250,56 +313,12 @@ const Meditation: React.FC = () => {
         URL.revokeObjectURL(scriptAudioUrl);
       }
     };
-  }, [currentScriptIndex, meditationScripts, isScriptEnabled, toast]);
-
-  // 加载和控制脚本音频
-  useEffect(() => {
-    if (scriptAudioUrl && !isScriptLoading) {
-      const audio = new Audio(scriptAudioUrl);
-      scriptAudioRef.current = audio;
-
-      audio.addEventListener("error", (e) => {
-        console.error("脚本音频加载错误:", e);
-        toast({
-          title: "文案音频加载失败",
-          description: "无法加载文案音频文件",
-          status: "error",
-          duration: 3000,
-          isClosable: true,
-        });
-      });
-
-      audio.addEventListener("ended", () => {
-        // 当前文案播放完毕，自动切换到下一段
-        if (
-          isScriptEnabled &&
-          currentScriptIndex < meditationScripts.length - 1
-        ) {
-          setCurrentScriptIndex((prev) => prev + 1);
-        }
-      });
-
-      // 如果背景音乐正在播放，自动播放脚本音频
-      if (isPlaying && isScriptEnabled) {
-        audio.play().catch((error) => {
-          console.error("脚本播放失败:", error);
-        });
-      }
-
-      return () => {
-        audio.pause();
-        audio.removeEventListener("error", () => {});
-        audio.removeEventListener("ended", () => {});
-      };
-    }
   }, [
-    scriptAudioUrl,
-    isScriptLoading,
-    isPlaying,
-    isScriptEnabled,
-    toast,
     currentScriptIndex,
-    meditationScripts.length,
+    meditationScripts,
+    isScriptEnabled,
+    selectedVoice,
+    toast,
   ]);
 
   const handlePlayPause = () => {
@@ -326,9 +345,16 @@ const Meditation: React.FC = () => {
         setIsPlaying(true);
 
         // 同时播放脚本音频
-        if (scriptAudioRef.current && isScriptEnabled) {
+        if (scriptAudioRef.current && isScriptEnabled && scriptAudioUrl) {
           scriptAudioRef.current.play().catch((error) => {
             console.error("脚本播放失败:", error);
+            toast({
+              title: "脚本播放失败",
+              description: "无法播放文案音频",
+              status: "error",
+              duration: 3000,
+              isClosable: true,
+            });
           });
         }
       }
