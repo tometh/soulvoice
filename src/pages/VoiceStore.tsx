@@ -83,7 +83,13 @@ const VoiceStore: React.FC = () => {
           w="100%"
           mb={6}
           cursor="pointer"
-        />
+        >
+          <img
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            src="/img/shop-banner.jpeg"
+            alt=""
+          />
+        </MotionBox>
       </Box>
 
       {/* Premium Voice Packs 部分 */}

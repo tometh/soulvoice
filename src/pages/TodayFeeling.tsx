@@ -310,7 +310,7 @@ const TodayFeeling: React.FC = () => {
                   color="gray.800"
                   mb={4}
                 >
-                  WHAT ARE YOU MANIFESTING TODAY?
+                  How do you feel today?
                 </Heading>
                 <AnimatePresence mode="wait">
                   <MotionBox

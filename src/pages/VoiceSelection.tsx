@@ -106,7 +106,8 @@ const VoiceSelection: React.FC = () => {
       image:
         "https://bpic.588ku.com/element_pic/23/04/25/fe973e002aa577c473fc1fd8e3780615.png!/fw/350/quality/99/unsharp/true/compress/true",
       bgColor: "#EFF6FF",
-      audioUrl: "/meditation/music1.wav",
+      audioUrl:
+        "https://7513814c8b5b.ngrok.app/voices/但这个世界上哪里有什么事情，是只有好处没有代价的呢？-1.wav",
     },
   ];
 
@@ -118,7 +119,8 @@ const VoiceSelection: React.FC = () => {
       description: "Please upload a clear, unobstructed voice clip(10-60s)",
       image: "https://t1.tp88.net/tp88/uploads/allimg/191213/1G0213057-0.jpg",
       bgColor: "#FCE7F3",
-      audioUrl: "/meditation/music1.wav",
+      audioUrl:
+        "https://7513814c8b5b.ngrok.app/voices/你没事吧，你没事吧，你没事吧，你没事吧-1.wav",
     },
     {
       id: "sys2",
@@ -127,7 +129,8 @@ const VoiceSelection: React.FC = () => {
       image:
         "https://s.alicdn.com/@sc04/kf/H0ab28dbdeb85479eab7fc548e2755824f.jpg_720x720q50.jpg",
       bgColor: "#FDF2F8",
-      audioUrl: "/meditation/music1.wav",
+      audioUrl:
+        "https://7513814c8b5b.ngrok.app/voices/想要获得什么补给尽管说，当然，我只能帮你祈愿一下。-1.wav",
     },
     {
       id: "sys3",
@@ -136,7 +139,8 @@ const VoiceSelection: React.FC = () => {
       image:
         "https://bpic.588ku.com/element_pic/23/07/04/7833d9718e47f0084c4f05fe3b1302f1.jpg!/fw/350/quality/99/unsharp/true/compress/true",
       bgColor: "#EFF6FF",
-      audioUrl: "/meditation/music1.wav",
+      audioUrl:
+        "https://7513814c8b5b.ngrok.app/voices/但这个世界上哪里有什么事情，是只有好处没有代价的呢？-1.wav",
     },
     {
       id: "sys4",
@@ -145,7 +149,8 @@ const VoiceSelection: React.FC = () => {
       image:
         "https://img.freepik.com/premium-vector/cute-grandfather-old-man-elder-cartoon-illustration_1058532-12606.jpg",
       bgColor: "#DBEAFE",
-      audioUrl: "/meditation/music1.wav",
+      audioUrl:
+        "https://7513814c8b5b.ngrok.app/voices/无事逢客休，席上校两棋…我们开局吧。-1.wav",
     },
   ];
 
@@ -198,21 +203,54 @@ const VoiceSelection: React.FC = () => {
 
   const handleStartRecording = async () => {
     try {
+      // 先检查是否支持 getUserMedia
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("您的浏览器不支持录音功能");
+      }
+
+      // 请求麦克风权限
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // 如果成功获取到流，说明已经获得权限
       setIsRecording(true);
       setAudioBlob(null);
       setAudioUrl(null);
+
       await voiceService.startRecording(() => {
         console.log("正在录音...");
       });
     } catch (error) {
       console.error("开始录音失败:", error);
+      let errorMessage = "请检查麦克风权限";
+
+      // 根据不同错误类型显示不同提示
+      if (error instanceof Error) {
+        if (
+          error.name === "NotAllowedError" ||
+          error.name === "PermissionDeniedError"
+        ) {
+          errorMessage = "麦克风权限被拒绝，请在浏览器设置中允许访问麦克风";
+        } else if (
+          error.name === "NotFoundError" ||
+          error.name === "DevicesNotFoundError"
+        ) {
+          errorMessage = "未找到麦克风设备，请检查设备连接";
+        } else if (
+          error.name === "NotReadableError" ||
+          error.name === "TrackStartError"
+        ) {
+          errorMessage = "麦克风设备被占用，请关闭其他使用麦克风的应用";
+        }
+      }
+
       toast({
         title: "开始录音失败",
-        description: "请检查麦克风权限",
+        description: errorMessage,
         status: "error",
-        duration: 3000,
+        duration: 5000,
         isClosable: true,
       });
+      setIsRecording(false);
     }
   };
 
@@ -220,10 +258,41 @@ const VoiceSelection: React.FC = () => {
     try {
       setIsRecording(false);
       const { audioBlob } = await voiceService.stopRecording();
-      setAudioBlob(audioBlob);
-      const url = URL.createObjectURL(audioBlob);
+
+      // 创建 AudioContext
+      const audioContext = new (window.AudioContext ||
+        (window as any).webkitAudioContext)();
+
+      // 将 Blob 转换为 ArrayBuffer
+      const arrayBuffer = await audioBlob.arrayBuffer();
+
+      // 解码音频数据
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+      // 创建离线 AudioContext
+      const offlineAudioContext = new OfflineAudioContext(
+        audioBuffer.numberOfChannels,
+        audioBuffer.length,
+        audioBuffer.sampleRate
+      );
+
+      // 创建音频源
+      const source = offlineAudioContext.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(offlineAudioContext.destination);
+      source.start();
+
+      // 渲染音频
+      const renderedBuffer = await offlineAudioContext.startRendering();
+
+      // 将 AudioBuffer 转换为 WAV 格式
+      const wavBlob = await convertToWav(renderedBuffer);
+
+      setAudioBlob(wavBlob);
+      const url = URL.createObjectURL(wavBlob);
       setAudioUrl(url);
-    } catch {
+    } catch (error) {
+      console.error("录音处理失败:", error);
       toast({
         title: "错误",
         description: "录音失败，请重试",
@@ -234,12 +303,77 @@ const VoiceSelection: React.FC = () => {
     }
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // 将 AudioBuffer 转换为 WAV 格式的 Blob
+  const convertToWav = async (audioBuffer: AudioBuffer): Promise<Blob> => {
+    const numOfChannels = audioBuffer.numberOfChannels;
+    const length = audioBuffer.length * numOfChannels * 2;
+    const buffer = new ArrayBuffer(44 + length);
+    const view = new DataView(buffer);
+
+    // WAV 文件头
+    writeUTFBytes(view, 0, "RIFF");
+    view.setUint32(4, 36 + length, true);
+    writeUTFBytes(view, 8, "WAVE");
+    writeUTFBytes(view, 12, "fmt ");
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, numOfChannels, true);
+    view.setUint32(24, audioBuffer.sampleRate, true);
+    view.setUint32(28, audioBuffer.sampleRate * 2 * numOfChannels, true);
+    view.setUint16(32, numOfChannels * 2, true);
+    view.setUint16(34, 16, true);
+    writeUTFBytes(view, 36, "data");
+    view.setUint32(40, length, true);
+
+    // 写入音频数据
+    const channelData = [];
+    let offset = 44;
+    for (let i = 0; i < numOfChannels; i++) {
+      channelData[i] = audioBuffer.getChannelData(i);
+    }
+
+    for (let i = 0; i < audioBuffer.length; i++) {
+      for (let channel = 0; channel < numOfChannels; channel++) {
+        const sample = channelData[channel][i];
+        view.setInt16(
+          offset,
+          sample < 0 ? sample * 0x8000 : sample * 0x7fff,
+          true
+        );
+        offset += 2;
+      }
+    }
+
+    return new Blob([buffer], { type: "audio/wav" });
+  };
+
+  // 辅助函数：写入 UTF-8 字节
+  const writeUTFBytes = (view: DataView, offset: number, string: string) => {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  };
+
+  const handleFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = event.target.files?.[0];
-    if (file) {
+    if (!file) return;
+
+    try {
+      // 直接设置文件，不进行转换
       setAudioBlob(file);
       const url = URL.createObjectURL(file);
       setAudioUrl(url);
+    } catch (error) {
+      console.error("文件处理失败:", error);
+      toast({
+        title: "文件处理失败",
+        description: "请确保上传的是有效的音频文件",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
     }
   };
 
@@ -249,9 +383,15 @@ const VoiceSelection: React.FC = () => {
     try {
       setIsLoading(true);
       const formData = new FormData();
-      formData.append("file", audioBlob);
 
-      console.log(formData);
+      // 如果是File类型，使用原始文件名，否则使用默认名称
+      const fileName =
+        audioBlob instanceof File ? audioBlob.name : "recorded.wav";
+      const finalFileName = fileName.endsWith(".wav")
+        ? fileName
+        : `${fileName}.wav`;
+
+      formData.append("file", audioBlob, finalFileName);
 
       const response = await fetch("https://7513814c8b5b.ngrok.app/upload", {
         method: "POST",
@@ -272,7 +412,8 @@ const VoiceSelection: React.FC = () => {
       setAudioBlob(null);
       setAudioUrl(null);
       fetchVoices();
-    } catch {
+    } catch (error) {
+      console.error("上传失败:", error);
       toast({
         title: "上传失败",
         description: "请检查网络连接",
@@ -424,7 +565,7 @@ const VoiceSelection: React.FC = () => {
         minH="100vh"
         bgGradient="linear(to-b, blue.50, purple.50)"
         p={4}
-        pb="80px"
+        pb="200px"
       >
         {/* 标题区域 */}
         <VStack spacing={2} mb={6} mt={4}>
@@ -613,12 +754,25 @@ const VoiceSelection: React.FC = () => {
         </VStack>
 
         {/* 已选声音和确认按钮 */}
-        <VStack spacing={4} w="100%" maxW="500px" mx="auto" mt={8} mb={6}>
+        <VStack
+          position={"fixed"}
+          bottom={"100px"}
+          spacing={4}
+          w="100%"
+          maxW="438px"
+          background={"white"}
+          borderRadius={"16px"}
+          boxShadow={"0px 0px 10px 0px rgba(0, 0, 0, 0.1)"}
+          padding={"16px"}
+          mx="auto"
+          mt={8}
+          mb={6}
+        >
           {(tempSelectedVoice || selectedVoice) && (
             <HStack
               w="100%"
-              bg="white"
-              p={3}
+              bg="#ffef4f"
+              p={"8px 16px"}
               borderRadius="full"
               justify="space-between"
               boxShadow="sm"
@@ -683,16 +837,16 @@ const VoiceSelection: React.FC = () => {
             </HStack>
           )}
 
-          <Box h="2px" w="50%" bg="gray.300" mx="auto" my={2}></Box>
-
           <Button
             w="100%"
-            h="60px"
+            h="48px"
             colorScheme="purple"
             isDisabled={!tempSelectedVoice}
-            fontSize="lg"
             borderRadius="full"
+            fontSize="16px"
             onClick={handleConfirmVoice}
+            _hover={{ bg: "purple.500" }}
+            _active={{ bg: "purple.600" }}
           >
             I'VE CHOSEN THIS VOICE
           </Button>
