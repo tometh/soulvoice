@@ -97,7 +97,10 @@ const VoiceSelection: React.FC = () => {
       image:
         "https://img.win3000.com/m00/97/f3/5eb33a8f4b9d9b59bddabdbeb6fd4d3a_c_345_458.jpg",
       bgColor: "#EDE9FF",
-      audioUrl: "/meditation/music1.wav",
+      audioUrl:
+        "https://7513814c8b5b.ngrok.app/voices/不管是路线的规划还是随机应变的能力，这台小家伙都比对空布的制式邦布更出色呢。-1.wav",
+      sendName:
+        "不管是路线的规划还是随机应变的能力，这台小家伙都比对空布的制式邦布更出色呢。-1",
     },
     {
       id: "p2",
@@ -108,6 +111,7 @@ const VoiceSelection: React.FC = () => {
       bgColor: "#EFF6FF",
       audioUrl:
         "https://7513814c8b5b.ngrok.app/voices/但这个世界上哪里有什么事情，是只有好处没有代价的呢？-1.wav",
+      sendName: "但这个世界上哪里有什么事情，是只有好处没有代价的呢？-1",
     },
   ];
 
@@ -121,6 +125,7 @@ const VoiceSelection: React.FC = () => {
       bgColor: "#FCE7F3",
       audioUrl:
         "https://7513814c8b5b.ngrok.app/voices/你没事吧，你没事吧，你没事吧，你没事吧-1.wav",
+      sendName: "你没事吧，你没事吧，你没事吧，你没事吧-1",
     },
     {
       id: "sys2",
@@ -131,6 +136,7 @@ const VoiceSelection: React.FC = () => {
       bgColor: "#FDF2F8",
       audioUrl:
         "https://7513814c8b5b.ngrok.app/voices/想要获得什么补给尽管说，当然，我只能帮你祈愿一下。-1.wav",
+      sendName: "想要获得什么补给尽管说，当然，我只能帮你祈愿一下。-1",
     },
     {
       id: "sys3",
@@ -141,6 +147,7 @@ const VoiceSelection: React.FC = () => {
       bgColor: "#EFF6FF",
       audioUrl:
         "https://7513814c8b5b.ngrok.app/voices/但这个世界上哪里有什么事情，是只有好处没有代价的呢？-1.wav",
+      sendName: "但这个世界上哪里有什么事情，是只有好处没有代价的呢？-1",
     },
     {
       id: "sys4",
@@ -151,6 +158,7 @@ const VoiceSelection: React.FC = () => {
       bgColor: "#DBEAFE",
       audioUrl:
         "https://7513814c8b5b.ngrok.app/voices/无事逢客休，席上校两棋…我们开局吧。-1.wav",
+      sendName: "无事逢客休，席上校两棋…我们开局吧。-1",
     },
   ];
 
@@ -669,7 +677,7 @@ const VoiceSelection: React.FC = () => {
               onClick={() =>
                 handleSelectVoice(
                   voice.id,
-                  voice.name,
+                  voice.sendName,
                   "purchased",
                   voice.audioUrl
                 )
@@ -723,7 +731,7 @@ const VoiceSelection: React.FC = () => {
               onClick={() =>
                 handleSelectVoice(
                   voice.id,
-                  voice.name,
+                  voice.sendName,
                   "system",
                   voice.audioUrl
                 )
