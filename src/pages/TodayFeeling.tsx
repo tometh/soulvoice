@@ -3,19 +3,17 @@ import {
   Box,
   VStack,
   Text,
-  Circle,
   useToast,
   Heading,
-  Button,
   HStack,
   Tag,
 } from "@chakra-ui/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { voiceService } from "../services/voiceService";
-import LoadingDots from "../components/LoadingDots";
 import { EmotionCard } from "../components/EmotionCard";
 import { useVoice } from "../contexts/VoiceContext";
+import type { Transition } from "framer-motion";
 
 const MotionBox = motion(Box);
 
@@ -30,7 +28,6 @@ const generateAffirmation = (
   text: string,
   suggestions: string[]
 ) => {
-  // 使用 AI 生成的情绪分析和建议
   const emotionSummary = suggestions[0] || `我感受到你的${emotion}`;
   const psychologicalComfort =
     suggestions.slice(1, -1).join("\n\n") ||
@@ -42,10 +39,25 @@ const generateAffirmation = (
   }`;
 };
 
-const pageTransition = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -20 },
+const pulseAnimation = {
+  scale: [1, 1.2, 1],
+  opacity: [0.5, 0.8, 0.5],
+};
+
+const pulseTransition: Transition = {
+  duration: 2,
+  repeat: Infinity,
+  ease: "easeInOut",
+};
+
+const breatheAnimation = {
+  scale: [1, 1.1, 1],
+};
+
+const breatheTransition: Transition = {
+  duration: 1.5,
+  repeat: Infinity,
+  ease: "easeInOut",
 };
 
 const TodayFeeling: React.FC = () => {
@@ -60,6 +72,7 @@ const TodayFeeling: React.FC = () => {
     suggestions: string[];
   } | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const toast = useToast();
@@ -73,8 +86,15 @@ const TodayFeeling: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const handlePressStart = async () => {
+  const handleStartRecording = async (
+    e: React.MouseEvent | React.TouchEvent
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (isRecording || isProcessing) return; // 防止重复触发和处理中的状态
+
     try {
+      setIsProcessing(true);
       setIsRecording(true);
       setRecognizedText("");
       setAudioUrl(null);
@@ -90,12 +110,20 @@ const TodayFeeling: React.FC = () => {
         isClosable: true,
       });
       setIsRecording(false);
-      console.error(error);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
-  const handlePressEnd = async () => {
+  const handleStopRecording = async (
+    e: React.MouseEvent | React.TouchEvent
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isRecording || isProcessing) return; // 如果没有在录音或正在处理中，直接返回
+
     try {
+      setIsProcessing(true);
       setIsRecording(false);
       setIsAnalyzing(true);
       const { text, audioBlob } = await voiceService.stopRecording();
@@ -105,11 +133,9 @@ const TodayFeeling: React.FC = () => {
         throw new Error("未能识别到语音内容");
       }
 
-      // 创建音频 URL 用于预览
       const audioUrl = URL.createObjectURL(audioBlob);
       setAudioUrl(audioUrl);
 
-      // 上传音频并分析情绪
       await voiceService.uploadAudio(audioBlob);
       const analysis = await voiceService.analyzeEmotion(finalText);
 
@@ -129,6 +155,7 @@ const TodayFeeling: React.FC = () => {
       });
     } finally {
       setIsAnalyzing(false);
+      setIsProcessing(false);
     }
   };
 
@@ -162,7 +189,6 @@ const TodayFeeling: React.FC = () => {
   }, []);
 
   const handleMeditation = (emotion: string) => {
-    // 根据情绪类型选择对应的冥想类型和场景
     const meditationType = getMeditationTypeByEmotion(emotion);
     const meditationScene = getMeditationSceneByEmotion(emotion);
     navigate("/meditation", {
@@ -174,7 +200,6 @@ const TodayFeeling: React.FC = () => {
   };
 
   const getMeditationTypeByEmotion = (emotion: string): string => {
-    // 根据情绪选择合适的冥想类型
     const typeMap: Record<string, string> = {
       喜悦: "morning",
       悲伤: "emotion",
@@ -202,13 +227,26 @@ const TodayFeeling: React.FC = () => {
     return sceneMap[emotion] || "平静喜悦";
   };
 
+  const resetState = () => {
+    setEmotionResult(null);
+    setRecognizedText("");
+    setAudioUrl(null);
+    setIsAnalyzing(false);
+    setIsRecording(false);
+    setIsProcessing(false);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setIsPlaying(false);
+  };
+
   return (
     <AnimatePresence mode="wait">
       <MotionBox
-        {...pageTransition}
-        initial="initial"
-        animate="animate"
-        exit="exit"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -20 }}
         minH="100vh"
         bgGradient="linear(to-b, pink.50, purple.50, blue.50)"
         p={4}
@@ -216,50 +254,247 @@ const TodayFeeling: React.FC = () => {
         <VStack spacing={8} mt={8}>
           {/* 当前使用的声音 */}
           <HStack
-            bg="white"
-            p={2}
+            bg="rgba(255, 255, 255, 0.8)"
+            backdropFilter="blur(8px)"
+            p={3}
+            px={4}
             borderRadius="full"
-            spacing={2}
-            boxShadow="sm"
+            spacing={3}
+            boxShadow="0 2px 8px rgba(0, 0, 0, 0.05)"
             onClick={() => navigate("/voice-selection")}
             cursor="pointer"
+            transition="all 0.2s"
+            _hover={{
+              bg: "rgba(255, 255, 255, 0.9)",
+              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)",
+              transform: "translateY(-1px)",
+            }}
           >
-            <Text fontSize="sm" color="gray.600">
-              当前声音: {selectedVoice.name}
+            <Box
+              as="span"
+              w={2}
+              h={2}
+              borderRadius="full"
+              bg="green.400"
+              boxShadow="0 0 8px rgba(72, 187, 120, 0.4)"
+            />
+            <Text fontSize="sm" color="gray.700" fontWeight="medium">
+              {selectedVoice.name}
             </Text>
-            <Tag size="sm" colorScheme="purple" variant="subtle">
-              #{selectedVoice.type}
+            <Tag
+              size="sm"
+              variant="subtle"
+              colorScheme={
+                selectedVoice.type === "system"
+                  ? "blue"
+                  : selectedVoice.type === "purchased"
+                  ? "purple"
+                  : "orange"
+              }
+              px={2.5}
+              py={1}
+              borderRadius="full"
+              textTransform="capitalize"
+            >
+              {selectedVoice.type}
             </Tag>
           </HStack>
 
           {!isAnalyzing && !emotionResult && (
-            <>
-              <Heading
-                fontSize="2xl"
-                fontWeight="black"
-                textAlign="center"
-                color="gray.800"
-                mb={8}
+            <VStack spacing={6} position="relative" w="full" h="70vh">
+              <Box position="absolute" top="10%" left="0" right="0" px={4}>
+                <Heading
+                  fontSize="2xl"
+                  fontWeight="black"
+                  textAlign="center"
+                  color="gray.800"
+                  mb={4}
+                >
+                  WHAT ARE YOU MANIFESTING TODAY?
+                </Heading>
+                <AnimatePresence mode="wait">
+                  <MotionBox
+                    key={currentQuestion}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.5 }}
+                  >
+                    <Text
+                      fontSize="md"
+                      color="gray.600"
+                      textAlign="center"
+                      px={4}
+                    >
+                      {questions[currentQuestion]}
+                    </Text>
+                  </MotionBox>
+                </AnimatePresence>
+              </Box>
+
+              {/* 录音按钮 */}
+              <Box
+                as={motion.div}
+                position="absolute"
+                top="50%"
+                left="50%"
+                transform="translate(-50%, -50%)"
+                whileTap={{ scale: 1.2 }}
+                marginTop="20px"
+                onTouchStart={(e) => {
+                  e.preventDefault();
+                  handleStartRecording(e);
+                }}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  handleStopRecording(e);
+                }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  handleStartRecording(e);
+                }}
+                onMouseUp={(e) => {
+                  e.preventDefault();
+                  handleStopRecording(e);
+                }}
+                onMouseLeave={(e) => {
+                  e.preventDefault();
+                  if (isRecording) {
+                    handleStopRecording(e);
+                  }
+                }}
+                cursor={isProcessing ? "wait" : "pointer"}
+                display="flex"
+                flexDirection="column"
+                alignItems="center"
+                justifyContent="center"
+                style={{
+                  userSelect: "none",
+                  WebkitUserSelect: "none",
+                  WebkitTouchCallout: "none",
+                  touchAction: "none",
+                  pointerEvents: isProcessing ? "none" : "auto",
+                }}
               >
-                WHAT ARE YOU MANIFESTING TODAY?
-              </Heading>
-              <VStack spacing={2}>
-                <Text fontSize="md" color="gray.600" textAlign="center">
-                  {questions[currentQuestion]}
-                </Text>
-              </VStack>
-            </>
+                {/* 外圈渐变光晕 */}
+                <Box
+                  position="absolute"
+                  width="280px"
+                  height="280px"
+                  borderRadius="full"
+                  bgGradient="radial(circle, rgba(255,255,255,0.8) 0%, rgba(255,192,203,0.3) 50%, transparent 70%)"
+                  filter="blur(20px)"
+                  zIndex={0}
+                  as={motion.div}
+                  animate={isRecording ? pulseAnimation : {}}
+                  transition={pulseTransition}
+                />
+
+                {/* 中间圈 */}
+                <Box
+                  position="absolute"
+                  width="200px"
+                  height="200px"
+                  borderRadius="full"
+                  bgGradient="radial(circle, rgba(255,192,203,0.2) 0%, rgba(147,112,219,0.1) 100%)"
+                  backdropFilter="blur(8px)"
+                  border="1px solid rgba(255,255,255,0.2)"
+                  zIndex={1}
+                  as={motion.div}
+                  animate={isRecording ? breatheAnimation : {}}
+                  transition={breatheTransition}
+                />
+
+                {/* 中心文字容器 */}
+                <Box
+                  position="absolute"
+                  width="200px"
+                  height="200px"
+                  display="flex"
+                  alignItems="center"
+                  justifyContent="center"
+                  zIndex={2}
+                >
+                  <Text
+                    color="gray.700"
+                    fontSize="xl"
+                    fontWeight="medium"
+                    textAlign="center"
+                  >
+                    {isRecording ? "松开结束" : "按住说话"}
+                  </Text>
+                </Box>
+              </Box>
+
+              {/* 识别文本显示 */}
+              {recognizedText && (
+                <Box
+                  position="absolute"
+                  bottom="15%"
+                  left="50%"
+                  transform="translateX(-50%)"
+                  maxW="80%"
+                  w="full"
+                >
+                  <Text
+                    fontSize="sm"
+                    color="gray.600"
+                    textAlign="center"
+                    bg="white"
+                    p={3}
+                    borderRadius="xl"
+                    boxShadow="sm"
+                  >
+                    {recognizedText}
+                  </Text>
+                </Box>
+              )}
+            </VStack>
           )}
 
-          {isAnalyzing ? (
-            <VStack spacing={4} mt={20}>
-              <Text fontSize="lg" color="gray.700" textAlign="center">
-                正在读取你今天的心情频率...
-              </Text>
-              <LoadingDots />
+          {isAnalyzing && recognizedText && (
+            <VStack spacing={4} pt={8}>
+              <Box
+                as={motion.div}
+                animate={{
+                  scale: [1, 1.2, 1],
+                  opacity: [0.5, 1, 0.5],
+                }}
+                transition={{
+                  duration: "1.5s",
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+                width="200px"
+                height="200px"
+                borderRadius="full"
+                bgGradient="radial(circle, rgba(255,192,203,0.3) 0%, rgba(147,112,219,0.2) 100%)"
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+              >
+                <Text color="gray.600" fontSize="lg" textAlign="center" px={4}>
+                  正在读取你今天的心情频率...
+                </Text>
+              </Box>
             </VStack>
-          ) : emotionResult ? (
-            <>
+          )}
+
+          {emotionResult && (
+            <VStack spacing={4} width="full">
+              <Box
+                alignSelf="flex-start"
+                ml={4}
+                mb={2}
+                onClick={resetState}
+                cursor="pointer"
+                display="flex"
+                alignItems="center"
+                color="gray.600"
+                _hover={{ color: "gray.800" }}
+              >
+                <Text fontSize="md">← 返回</Text>
+              </Box>
               <EmotionCard
                 emotion={emotionResult.emotion}
                 affirmation={generateAffirmation(
@@ -268,9 +503,9 @@ const TodayFeeling: React.FC = () => {
                   emotionResult.suggestions
                 )}
                 audioUrl={audioUrl}
+                isPlaying={isPlaying}
                 onPlay={handlePlayAudio}
                 onPause={handlePauseAudio}
-                isPlaying={isPlaying}
                 onFavorite={() => {
                   toast({
                     title: "收藏成功",
@@ -294,159 +529,7 @@ const TodayFeeling: React.FC = () => {
                   });
                 }}
               />
-              <Button
-                colorScheme="pink"
-                variant="ghost"
-                onClick={() => {
-                  setEmotionResult(null);
-                  setRecognizedText("");
-                  setAudioUrl(null);
-                }}
-                mt={4}
-              >
-                重新录制
-              </Button>
-            </>
-          ) : (
-            <Box position="relative">
-              <Circle
-                as={motion.div}
-                size="200px"
-                bg={isRecording ? "pink.100" : "white"}
-                boxShadow="lg"
-                cursor="pointer"
-                transition="all 0.3s ease"
-                display="flex"
-                alignItems="center"
-                justifyContent="center"
-                onMouseDown={handlePressStart}
-                onMouseUp={handlePressEnd}
-                onTouchStart={handlePressStart}
-                onTouchEnd={handlePressEnd}
-                animate={{
-                  scale: isRecording ? 1.1 : 1,
-                }}
-                whileHover={{ scale: 1.05 }}
-                position="relative"
-                _before={{
-                  content: '""',
-                  position: "absolute",
-                  top: "-20px",
-                  left: "-20px",
-                  right: "-20px",
-                  bottom: "-20px",
-                  background:
-                    "radial-gradient(circle, rgba(255,192,203,0.2) 0%, rgba(255,255,255,0) 70%)",
-                  borderRadius: "50%",
-                  zIndex: -1,
-                }}
-              >
-                <AnimatePresence>
-                  {isRecording && (
-                    <>
-                      <Circle
-                        as={motion.div}
-                        key="circle-1"
-                        position="absolute"
-                        size="100%"
-                        border="1.5px solid"
-                        borderColor="pink.300"
-                        opacity={0.7}
-                        initial={{ scale: 1, opacity: 0.7 }}
-                        animate={{
-                          scale: [1, 1.4, 1.8],
-                          opacity: [0.7, 0.3, 0],
-                        }}
-                        exit={{ opacity: 0, scale: 1 }}
-                        transition={{
-                          duration: 1.8,
-                          ease: "easeInOut",
-                          repeat: Infinity,
-                          repeatType: "loop",
-                        }}
-                      />
-                      <Circle
-                        as={motion.div}
-                        key="circle-2"
-                        position="absolute"
-                        size="100%"
-                        border="1.5px solid"
-                        borderColor="pink.200"
-                        opacity={0.5}
-                        initial={{ scale: 1, opacity: 0.5 }}
-                        animate={{
-                          scale: [1, 1.3, 1.6],
-                          opacity: [0.5, 0.2, 0],
-                        }}
-                        exit={{ opacity: 0, scale: 1 }}
-                        transition={{
-                          duration: 1.8,
-                          ease: "easeInOut",
-                          delay: 0.3,
-                          repeat: Infinity,
-                          repeatType: "loop",
-                        }}
-                      />
-                      <Circle
-                        as={motion.div}
-                        key="circle-3"
-                        position="absolute"
-                        size="100%"
-                        border="1.5px solid"
-                        borderColor="pink.100"
-                        opacity={0.4}
-                        initial={{ scale: 1, opacity: 0.4 }}
-                        animate={{
-                          scale: [1, 1.2, 1.4],
-                          opacity: [0.4, 0.2, 0],
-                        }}
-                        exit={{ opacity: 0, scale: 1 }}
-                        transition={{
-                          duration: 1.8,
-                          ease: "easeInOut",
-                          delay: 0.6,
-                          repeat: Infinity,
-                          repeatType: "loop",
-                        }}
-                      />
-                    </>
-                  )}
-                </AnimatePresence>
-                <Text fontSize="lg" color="gray.600">
-                  {isRecording ? "松开结束" : "按住说话"}
-                </Text>
-              </Circle>
-              {recognizedText && (
-                <Text
-                  position="absolute"
-                  top="-40px"
-                  left="50%"
-                  transform="translateX(-50%)"
-                  fontSize="sm"
-                  color="gray.600"
-                  width="280px"
-                  textAlign="center"
-                  bg="white"
-                  p={2}
-                  borderRadius="md"
-                  boxShadow="sm"
-                >
-                  {recognizedText}
-                </Text>
-              )}
-              <Text
-                position="absolute"
-                bottom="-80px"
-                left="50%"
-                transform="translateX(-50%)"
-                fontSize="sm"
-                color="gray.500"
-                width="280px"
-                textAlign="center"
-              >
-                我们不会记录你的语音，所有内容只为生成当日引导。
-              </Text>
-            </Box>
+            </VStack>
           )}
         </VStack>
       </MotionBox>
