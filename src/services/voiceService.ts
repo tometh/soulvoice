@@ -106,45 +106,213 @@ class VoiceService {
   }
 
   private async generateEmotionMap(): Promise<Record<string, string>> {
-    const response = await axios.post(
-      "https://api-inference.huggingface.co/models/THUDM/chatglm3-6b",
-      {
-        inputs:
-          "请生成一个情绪英文到中文的映射，格式为JSON对象，key为英文情绪名，value为对应的中文翻译。包括：happiness, sadness, anger, fear, surprise, neutral, disgust, anxiety 等基础情绪。",
-        parameters: {
-          max_length: 200,
-          temperature: 0.1,
-        },
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${this.HF_API_TOKEN}`,
-          "Content-Type": "application/json",
-        },
+    const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
+    const DEEPSEEK_API_KEY = import.meta.env.VITE_DEEPSEEK_API_KEY;
+
+    if (!OPENAI_API_KEY && !DEEPSEEK_API_KEY) {
+      throw new Error("未设置 API 密钥");
+    }
+
+    try {
+      // 首先尝试使用 OpenAI API
+      const response = await fetch(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${OPENAI_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: "gpt-3.5-turbo-0125",
+            messages: [
+              {
+                role: "system",
+                content:
+                  "你是一个情绪分析专家，负责生成英文情绪到中文情绪的映射。请直接返回一个有效的 JSON 对象，不要包含任何其他文本或代码块标记。",
+              },
+              {
+                role: "user",
+                content:
+                  "请生成一个英文情绪到中文情绪的映射，格式为JSON对象。key为英文情绪（happiness, sadness, anger, fear, surprise, neutral, disgust, anxiety），value为对应的中文情绪词。每个情绪分类至少包含3个常用的中文情绪词。",
+              },
+            ],
+            temperature: 0.1,
+            max_tokens: 500,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`OpenAI API 请求失败: ${response.status}`);
       }
-    );
-    return response.data;
+
+      const data = await response.json();
+      const content = data.choices[0].message.content;
+      try {
+        return JSON.parse(content);
+      } catch (parseError) {
+        console.error("OpenAI API 返回的 JSON 解析失败:", parseError);
+        throw new Error("OpenAI API 返回的数据格式错误");
+      }
+    } catch (error) {
+      console.warn("OpenAI API 调用失败，尝试使用 DeepSeek API:", error);
+
+      if (!DEEPSEEK_API_KEY) {
+        throw new Error("DeepSeek API 密钥未设置");
+      }
+
+      try {
+        const response = await fetch(
+          "https://api.deepseek.com/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+            },
+            body: JSON.stringify({
+              model: "deepseek-chat",
+              messages: [
+                {
+                  role: "system",
+                  content:
+                    "你是一个情绪分析专家，负责生成英文情绪到中文情绪的映射。请直接返回一个有效的 JSON 对象，不要包含任何其他文本或代码块标记。",
+                },
+                {
+                  role: "user",
+                  content:
+                    "请生成一个英文情绪到中文情绪的映射，格式为JSON对象。key为英文情绪（happiness, sadness, anger, fear, surprise, neutral, disgust, anxiety），value为对应的中文情绪词。每个情绪分类至少包含3个常用的中文情绪词。",
+                },
+              ],
+              temperature: 0.1,
+              max_tokens: 500,
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`DeepSeek API 请求失败: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const content = data.choices[0].message.content;
+        try {
+          return JSON.parse(content);
+        } catch (parseError) {
+          console.error("DeepSeek API 返回的 JSON 解析失败:", parseError);
+          throw new Error("DeepSeek API 返回的数据格式错误");
+        }
+      } catch (deepseekError) {
+        console.error("DeepSeek API 调用失败:", deepseekError);
+        throw new Error("所有 API 调用均失败");
+      }
+    }
   }
 
   private async generateKeywordMap(): Promise<Record<string, string>> {
-    const response = await axios.post(
-      "https://api-inference.huggingface.co/models/THUDM/chatglm3-6b",
-      {
-        inputs:
-          "请生成一个中文情绪关键词到英文情绪的映射，格式为JSON对象。key为中文情绪词，value为对应的英文情绪分类（happiness, sadness, anger, fear, surprise, neutral, disgust, anxiety）。每个情绪分类至少包含5个常用的中文情绪词。",
-        parameters: {
-          max_length: 500,
-          temperature: 0.1,
-        },
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${this.HF_API_TOKEN}`,
-          "Content-Type": "application/json",
-        },
+    const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
+    const DEEPSEEK_API_KEY = import.meta.env.VITE_DEEPSEEK_API_KEY;
+
+    if (!OPENAI_API_KEY && !DEEPSEEK_API_KEY) {
+      throw new Error("未设置 API 密钥");
+    }
+
+    try {
+      // 首先尝试使用 OpenAI API
+      const response = await fetch(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${OPENAI_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: "gpt-3.5-turbo-0125",
+            messages: [
+              {
+                role: "system",
+                content:
+                  "你是一个情绪分析专家，负责生成中文情绪关键词到英文情绪的映射。请直接返回一个有效的 JSON 对象，不要包含任何其他文本或代码块标记。",
+              },
+              {
+                role: "user",
+                content:
+                  "请生成一个中文情绪关键词到英文情绪的映射，格式为JSON对象。key为中文情绪词，value为对应的英文情绪分类（happiness, sadness, anger, fear, surprise, neutral, disgust, anxiety）。每个情绪分类至少包含5个常用的中文情绪词。",
+              },
+            ],
+            temperature: 0.1,
+            max_tokens: 500,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`OpenAI API 请求失败: ${response.status}`);
       }
-    );
-    return response.data;
+
+      const data = await response.json();
+      const content = data.choices[0].message.content;
+      try {
+        return JSON.parse(content);
+      } catch (parseError) {
+        console.error("OpenAI API 返回的 JSON 解析失败:", parseError);
+        throw new Error("OpenAI API 返回的数据格式错误");
+      }
+    } catch (error) {
+      console.warn("OpenAI API 调用失败，尝试使用 DeepSeek API:", error);
+
+      if (!DEEPSEEK_API_KEY) {
+        throw new Error("DeepSeek API 密钥未设置");
+      }
+
+      try {
+        const response = await fetch(
+          "https://api.deepseek.com/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+            },
+            body: JSON.stringify({
+              model: "deepseek-chat",
+              messages: [
+                {
+                  role: "system",
+                  content:
+                    "你是一个情绪分析专家，负责生成中文情绪关键词到英文情绪的映射。请直接返回一个有效的 JSON 对象，不要包含任何其他文本或代码块标记。",
+                },
+                {
+                  role: "user",
+                  content:
+                    "请生成一个中文情绪关键词到英文情绪的映射，格式为JSON对象。key为中文情绪词，value为对应的英文情绪分类（happiness, sadness, anger, fear, surprise, neutral, disgust, anxiety）。每个情绪分类至少包含5个常用的中文情绪词。",
+                },
+              ],
+              temperature: 0.1,
+              max_tokens: 500,
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`DeepSeek API 请求失败: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const content = data.choices[0].message.content;
+        try {
+          return JSON.parse(content);
+        } catch (parseError) {
+          console.error("DeepSeek API 返回的 JSON 解析失败:", parseError);
+          throw new Error("DeepSeek API 返回的数据格式错误");
+        }
+      } catch (deepseekError) {
+        console.error("DeepSeek API 调用失败:", deepseekError);
+        throw new Error("所有 API 调用均失败");
+      }
+    }
   }
 
   private async generateSuggestionMap(

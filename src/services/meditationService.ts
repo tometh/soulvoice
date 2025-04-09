@@ -133,33 +133,47 @@ ${type === "sleep" ? "祝你好梦..." : "愿你拥有美好的一天..."}`;
   async generateMeditationScripts(
     type: string,
     scene: string,
-    voice: SelectedVoice
+    emotion: string
   ): Promise<string> {
-    try {
-      const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-      if (!apiKey) {
-        throw new Error("OpenAI API key not found");
-      }
+    const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
+    const DEEPSEEK_API_KEY = import.meta.env.VITE_DEEPSEEK_API_KEY;
 
+    if (!OPENAI_API_KEY && !DEEPSEEK_API_KEY) {
+      throw new Error("未设置 API 密钥");
+    }
+
+    try {
+      // 首先尝试使用 OpenAI API
       const response = await fetch(
         "https://api.openai.com/v1/chat/completions",
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
+            Authorization: `Bearer ${OPENAI_API_KEY}`,
           },
           body: JSON.stringify({
-            model: "gpt-3.5-turbo",
+            model: "gpt-3.5-turbo-0125",
             messages: [
               {
                 role: "system",
                 content:
-                  "你是一个专业的冥想引导师，擅长创作各种类型的冥想引导词。",
+                  "你是一个专业的冥想引导师，擅长根据用户的情绪状态和场景需求生成个性化的冥想引导词。",
               },
               {
                 role: "user",
-                content: `请生成一段${type}冥想引导词，场景是${scene}，使用${voice.name}的声音风格。要求：1. 语言优美流畅；2. 引导自然；3. 时长约3分钟；4. 适合冥想场景。`,
+                content: `请根据以下信息生成一段冥想引导词：
+- 冥想类型：${type}
+- 场景：${scene}
+- 情绪状态：${emotion}
+
+要求：
+1. 引导词要温暖、专业、富有感染力
+2. 要包含呼吸指导
+3. 要结合场景进行视觉化引导
+4. 要针对当前情绪状态提供适当的安抚和引导
+5. 语言要自然流畅，避免生硬的指令
+6. 长度控制在300字左右`,
               },
             ],
             temperature: 0.7,
@@ -169,24 +183,67 @@ ${type === "sleep" ? "祝你好梦..." : "愿你拥有美好的一天..."}`;
       );
 
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error("API 错误响应:", errorData);
-        throw new Error(
-          `API 请求失败: ${response.status} ${response.statusText}`
-        );
+        throw new Error(`OpenAI API 请求失败: ${response.status}`);
       }
 
       const data = await response.json();
-
-      if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-        throw new Error("API 返回数据格式错误");
-      }
-
       return data.choices[0].message.content;
     } catch (error) {
-      console.error("生成冥想脚本失败:", error);
-      // 返回默认的冥想引导词
-      return `让我们开始一段${type}冥想。请找一个舒适的位置，闭上眼睛，深呼吸...感受${scene}带给你的宁静与平和。`;
+      console.warn("OpenAI API 调用失败，尝试使用 DeepSeek API:", error);
+
+      if (!DEEPSEEK_API_KEY) {
+        throw new Error("DeepSeek API 密钥未设置");
+      }
+
+      try {
+        const response = await fetch(
+          "https://api.deepseek.com/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+            },
+            body: JSON.stringify({
+              model: "deepseek-chat",
+              messages: [
+                {
+                  role: "system",
+                  content:
+                    "你是一个专业的冥想引导师，擅长根据用户的情绪状态和场景需求生成个性化的冥想引导词。",
+                },
+                {
+                  role: "user",
+                  content: `请根据以下信息生成一段冥想引导词：
+- 冥想类型：${type}
+- 场景：${scene}
+- 情绪状态：${emotion}
+
+要求：
+1. 引导词要温暖、专业、富有感染力
+2. 要包含呼吸指导
+3. 要结合场景进行视觉化引导
+4. 要针对当前情绪状态提供适当的安抚和引导
+5. 语言要自然流畅，避免生硬的指令
+6. 长度控制在300字左右`,
+                },
+              ],
+              temperature: 0.7,
+              max_tokens: 1000,
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`DeepSeek API 请求失败: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data.choices[0].message.content;
+      } catch (deepseekError) {
+        console.error("DeepSeek API 调用失败:", deepseekError);
+        throw new Error("所有 API 调用均失败");
+      }
     }
   }
 
