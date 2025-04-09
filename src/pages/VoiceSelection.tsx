@@ -146,8 +146,8 @@ const VoiceSelection: React.FC = () => {
         "https://bpic.588ku.com/element_pic/23/07/04/7833d9718e47f0084c4f05fe3b1302f1.jpg!/fw/350/quality/99/unsharp/true/compress/true",
       bgColor: "#EFF6FF",
       audioUrl:
-        "https://7513814c8b5b.ngrok.app/voices/但这个世界上哪里有什么事情，是只有好处没有代价的呢？-1.wav",
-      sendName: "但这个世界上哪里有什么事情，是只有好处没有代价的呢？-1",
+        "https://7513814c8b5b.ngrok.app/voices/无意冒犯，先生。只是想请您透露一些有关病患的信息。-1.wav",
+      sendName: "无意冒犯，先生。只是想请您透露一些有关病患的信息。-1",
     },
     {
       id: "sys4",
@@ -646,7 +646,7 @@ const VoiceSelection: React.FC = () => {
                 }
               >
                 <Text color="white" fontWeight="bold">
-                  {voice.name}
+                  {voice.name.substring(0, 4)}
                 </Text>
               </Box>
             ))}
