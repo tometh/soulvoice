@@ -150,35 +150,12 @@ const VoiceSelection: React.FC = () => {
   ];
 
   useEffect(() => {
-    fetchCustomVoices();
     fetchVoices();
   }, []);
 
-  const fetchCustomVoices = async () => {
-    try {
-      const response = await fetch(
-        "https://7513814c8b5b.ngrok.app/voices_list",
-        {
-          method: "GET",
-        }
-      );
-
-      const data = await response.json();
-      console.log(data, "data");
-      setCustomVoices(data.voices);
-    } catch {
-      toast({
-        title: "获取声音列表失败",
-        description: "请检查网络连接",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      });
-    }
-  };
-
   const fetchVoices = async () => {
     try {
+      setIsLoading(true);
       const response = await axios.get(
         "https://7513814c8b5b.ngrok.app/voices_list"
       );
@@ -195,13 +172,16 @@ const VoiceSelection: React.FC = () => {
           .trim();
 
         return {
-          id: index + 1,
+          id: String(index + 1),
           name: displayName,
           url: url,
+          type: "custom" as const,
+          audioUrl: url,
         };
       });
 
       setVoices(processedVoices);
+      setCustomVoices(processedVoices);
     } catch (error) {
       console.error("获取声音列表失败:", error);
       toast({
@@ -211,6 +191,8 @@ const VoiceSelection: React.FC = () => {
         duration: 3000,
         isClosable: true,
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -289,7 +271,7 @@ const VoiceSelection: React.FC = () => {
       onClose();
       setAudioBlob(null);
       setAudioUrl(null);
-      fetchCustomVoices();
+      fetchVoices();
     } catch {
       toast({
         title: "上传失败",
